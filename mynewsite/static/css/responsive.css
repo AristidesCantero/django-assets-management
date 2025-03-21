@@ -1,0 +1,306 @@
+html{
+    height: 100%;
+}
+
+body{
+    height: 100%;
+}
+
+html a{
+    line-height: 25px;
+    text-decoration: none;
+}
+
+@font-face {
+    font-family: DM_Serif_Text;
+    src: url("./DM_Serif_Text/DMSerifText-Regular.ttf");
+}
+
+@font-face {
+    font-family: Audiowide;
+    src: url("./Audiowide/Audiowide-Regular.ttf")
+}
+
+@font-face {
+    font-family: Teko-Light;
+    src: url("./Teko/static/Teko-Light.ttf");
+}
+
+@font-face {
+    font-family: Teko-SemiBold;
+    src: url("./Teko/static/Teko-SemiBold.ttf");
+}
+
+@font-face {
+    font-family: Source-Sans-3;
+    src: url("./Source_Sans_3/static/SourceSans3-LightItalic.ttf");
+}
+
+/*Header section*/
+/*hero area*/
+.hero_area{
+    height: 15%;
+    width: 100%;
+    display: block;
+    position: relative;
+    box-sizing: border-box;
+}
+
+.hero_area .hero_info{
+    width: 100%;
+    height: 30%;
+    display: flex;
+    vertical-align: middle;
+    background-color: rgb(20, 22, 64);
+    font-size: 20px;
+}
+
+.hero_area .hero_info .data a{
+    color: whitesmoke;
+    font-size: 20px;
+    font-family: Source-Sans-3;
+}
+.hero_area .hero_info .data a:hover{
+    color: rgb(86, 86, 86);
+}
+
+.data{
+    width: 100%;
+    height: 70%;
+    padding-left: 20px;
+    padding-right: 20px;
+    margin: auto;
+    display: flex;
+    -webkit-box-pack: justify;
+        -ms-flex-pack: justify;
+    justify-content: space-between;
+}
+/*end hero area*/
+
+
+/*heor header*/
+.hero_header{
+    width: 100%;
+    height: 70%;
+    display: flex;
+    vertical-align: middle;
+}
+
+.logo{
+    font-size: 1.5rem;
+    font-weight: 700;
+    height: 100%;
+    grid-column: 1/2;
+    grid-row: 1;
+    display: flex;
+}
+
+.hero_header .data .logo h1{
+    font-family: Audiowide;
+    line-height: 1.5em;
+}
+
+/*Image logo en caos que se requiera d enuevo para iamgen*/
+.image_logo{
+    max-width: auto;
+    height: 100%;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+
+.menu_bar{
+    font-size: 1.3rem;
+    font-weight: 700;
+    grid-column: 3/7;
+    height: 100%;
+    width: 100%;
+    display: inline-block;
+}
+
+.menu_bar li{
+    height: 100%;
+    display: flex;
+    align-items: center;
+    float: right;
+    padding-left: 20px;
+    padding-right: 20px;
+    font-family: Teko-SemiBold;
+    font-size: 24px;
+}
+
+
+.selection{
+    display: grid;
+    grid-template-columns: auto auto auto;
+    grid-template-columns: repeat(6, 1fr);
+}
+/*end hero header*/
+
+/*End header section*/
+
+/*Layout Section*/
+
+.layout{
+    height: max(65%,1rem);
+}
+
+.layout_content{
+    margin: auto;
+    width: 60%;
+    height: 100%;
+}
+
+/*End Layout Section*/
+
+
+
+/*Details section*/
+
+.details{
+    background-color: #1f1818;
+    height: 40%;
+    align-items: center;
+}
+.details_list{
+    height: 85%;
+    width: 80%;
+    margin: auto;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    align-content: space-evenly;
+}
+
+.details h1{
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+    text-transform: uppercase;
+    text-decoration: none;
+}
+
+.details_cells{
+    overflow: hidden;
+    height: 100%;
+    width: 20%;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 35px 0 35px 0;
+    color: rgb(201, 201, 201);
+}
+
+.details_cells h1{
+    text-align: left;
+    font-size: 20px;
+    font-family: Source-Sans-3;
+    color: rgb(201, 201, 201);
+}
+
+.details_cells h2{
+  font-size: 16px;
+  font-family: Source-Sans-3;
+  color: rgb(201, 201, 201);
+}
+
+
+.details_cells ul{
+    display: block;
+    float: left;
+    color: white;
+}
+
+.details_cells .socials a{
+    display: inline;
+}
+
+.socials{
+    display: flex;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.fa {
+    margin: 5px;
+    font-size: 1rem;
+    width: 50px;
+    text-align: center;
+    text-decoration: none;
+    color: rgb(201, 201, 201);
+  }
+
+.social-info{
+    display: inline;
+}
+
+.social-info .row{
+    width: 100%;
+    height: 25%;
+    display: grid;
+    grid-template-columns: repeat(5,1fr);
+    margin: 5px 0 5px 0;
+}
+
+.social-info .rowb{
+    width: 100%;
+    height: 25%;
+    display: grid;
+    grid-template-columns: repeat(5,1fr);
+    margin: 5px 0 5px 0;
+}
+
+.social-info .logo{
+    grid-column: 1;
+    text-align: left;
+}
+
+.social-info .text{
+    margin: 5px;
+    margin-top: 0;
+    grid-column: 2/5;
+    text-align: left;
+    overflow-wrap: break-word;
+}
+
+.social-info .textb{
+    margin: 5px;
+    margin-top: 0;
+    text-align: left;
+    overflow-wrap: break-word;
+}
+
+
+.rights{
+    height: 15%;
+    width: 60%;
+    /*padding: 25px 0;*/
+    color: #ffffff;
+    text-align: center;
+    align-content: center;
+    border-top: 0.8px solid #ffffff;
+    margin: auto;
+}
+
+.rights p{
+    margin: auto;
+}
+
+
+
+
+
+
+
+/*End detail section*/
+
+
+
+
+/*General aspects of all the sections*/
+.hero_area, .layout, .details{
+    width: 100%
+}
+/*End of General aspects of all the sections*/
+

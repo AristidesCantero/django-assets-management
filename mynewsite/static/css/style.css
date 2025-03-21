@@ -1,0 +1,107 @@
+
+
+/*HEADER AREA*/
+.hero_area{
+    background-color: rgb(200, 200, 200);
+    position: relative;
+    z-index: 1000;
+    -webkit-box-pack: justify;
+        -ms-flex-pack: justify;
+            justify-content: space-between;
+    /*transition: all 0.3s;*/
+}
+.hero_area h2{
+    font-size: 1.2rem;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+
+
+.layout{
+    position: relative;
+}
+.layout_content{
+    border-style: solid;
+    border-color: blue;
+    border-width: 5px;
+}
+
+.details{
+    position: relative;
+}
+
+
+.layout_padding {
+    padding-top: 120px;
+    padding-bottom: 120px;
+  }
+
+
+
+/*Header section*/
+
+
+.hero_header{
+    justify-content: space-between;
+    align-items: center;
+    background-color: #f54747;
+}
+
+
+.logo{
+    text-transform: uppercase;
+    text-decoration: none;
+    padding-left: 20px;
+    padding-top: auto;
+    padding-bottom: auto;
+}
+
+
+.data .menu_bar{
+    padding-right: 20px;
+    padding-left: 20px;
+}
+
+li{
+    height: 100%;
+    vertical-align: middle;
+    display: inline;
+}
+
+
+
+/*End header section*/
+
+
+
+/*Layout Section*/
+.layout{
+    background-image: linear-gradient(180deg,#f54747, #d82d2d, #b61601);
+}
+
+.layout_content{
+    text-align: center;
+}
+
+/*End Layout Section*/
+
+
+/*Detail section*/
+
+
+
+/*End detail section*/
+
+
+
+/*UNUSED maybe should be deleted*/
+.image_holder{
+    width: auto;
+    height: auto;
+    border-radius: 5%;
+    overflow: hidden;
+    margin-right: 20px;
+}
+
+
