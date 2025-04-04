@@ -1,5 +1,5 @@
 from django.db import models
-from business.models import *
+from assets.models import *
 # Create your models here.
 
 

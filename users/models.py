@@ -44,7 +44,4 @@ class User(AbstractUser, PermissionsMixin):
     def __str__(self):
         return self.email
     
-
-    def save(self, *args, **kwargs):
-        print('holaaaaaaaaaaaaaaaaaaaaaaaaaaa')
         

@@ -24,6 +24,12 @@ class Headquarters(models.Model):
     def __str__(self):
         return self.name
     
+    def update(self, **kwargs):
+        for attr, value in kwargs.items():
+            setattr(self, attr, value)
+        self.save()
+        return self
+    
 class InternalLocation(models.Model):
     name = models.CharField(max_length=100)
     floor = models.CharField(max_length=50)

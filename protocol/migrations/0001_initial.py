@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('business', '0001_initial'),
+        ('assets', '0001_initial'),
     ]
 
     operations = [
@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('description', models.CharField(max_length=255)),
-                ('asset_key', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='business.asset')),
+                ('asset_key', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='assets.asset')),
             ],
         ),
         migrations.CreateModel(

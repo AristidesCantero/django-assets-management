@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('business', '0001_initial'),
+        ('assets', '0001_initial'),
     ]
 
     operations = [
@@ -22,7 +22,7 @@ class Migration(migrations.Migration):
                 ('serial_number', models.CharField(blank=True, max_length=255, null=True)),
                 ('date_created', models.DateTimeField(auto_now_add=True, null=True)),
                 ('date_modified', models.DateTimeField(auto_now=True, null=True)),
-                ('asset_key', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='business.asset')),
+                ('asset_key', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='assets.asset')),
             ],
             options={
                 'verbose_name_plural': 'Asset Systems',
