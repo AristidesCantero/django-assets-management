@@ -12,6 +12,12 @@ class Business(models.Model):
     def __str__(self):
         return self.name
     
+    def update(self, **kwargs):
+        for attr, value in kwargs.items():
+            setattr(self, attr, value)
+        self.save()
+        return self
+    
 
 class Headquarters(models.Model):
     name = models.CharField(max_length=100)
@@ -39,4 +45,4 @@ class InternalLocation(models.Model):
     update_date = models.DateField(auto_now=True, blank=True, null=True)
 
     def __str__(self):
-        return self.name
+        return self.name + (' Piso: '+ self.floor) if self.floor else ""
