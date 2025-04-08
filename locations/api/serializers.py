@@ -76,6 +76,31 @@ class HeadquartersCheckSerializer(serializers.Serializer):
             updated_headquarter.save()
             return updated_headquarter
 
+
+class HeadquartersUpdateSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    name = serializers.CharField(max_length=100)
+    address = serializers.CharField(max_length=255)
+    phone = serializers.CharField(max_length=15)
+
+    def validate_business_key(self, value):
+        if not Business.objects.filter(id=value.id).exists():
+            raise serializers.ValidationError("Business does not exist.")
+        return value
+        
+    
+    def validate_phone(self, value):
+        if not value.isdigit() or len(value) < 10:
+            raise serializers.ValidationError("Phone number must be numeric and at least 10 digits long.")
+        return value
+    
+    def update(self, instance, validated_data):
+        instance.name = validated_data.get('name', instance.name)
+        instance.address = validated_data.get('address', instance.address)
+        instance.phone = validated_data.get('phone', instance.phone)
+        updated_headquarter = instance
+        instance.save()
+        return updated_headquarter
         
 class HeadquartersListSerializer(serializers.ModelSerializer):
     class Meta:

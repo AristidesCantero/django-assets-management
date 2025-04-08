@@ -93,7 +93,7 @@ def headquarters_detail_api_view(request, pk=None):
         
         #PUT to update the headquarter by id
         elif request.method == 'PUT':
-            headquarters_serializer = HeadquartersCheckSerializer(headquarter, data = request.data)
+            headquarters_serializer = HeadquartersUpdateSerializer(headquarter, data = request.data)
             if headquarters_serializer.is_valid():
                 headquarters_serializer.save()
                 return Response(headquarters_serializer.data, status=status.HTTP_200_OK)
@@ -101,9 +101,10 @@ def headquarters_detail_api_view(request, pk=None):
         
         #DELETE to delete the headquarter by id
         elif request.method == 'DELETE':
-            data = headquarter.data
+            headquarters_serializer = HeadquartersCheckSerializer(headquarter)
+            data = headquarters_serializer.data
             headquarter.delete()
-            return Response({'message':'sede Eliminada', 'data':data}, status=status.HTTP_200_OK)
+            return Response(data, status=status.HTTP_200_OK)
     return Response({'message':'No se ha encontrado la sede'}, status=status.HTTP_400_BAD_REQUEST)
 
 
