@@ -9,6 +9,11 @@ class BusinessSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class BusinessCheckSerializer(serializers.Serializer):
+    class Meta:
+        model = Business
+        fields = '__all__'
+
+
     id = serializers.IntegerField(read_only=True)
     name = serializers.CharField(max_length=255)
     tin = serializers.CharField(max_length=255)
@@ -40,10 +45,12 @@ class BusinessListSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         # data = super().to_representation(instance) #this def representation is used to get the data is instance is a object
         return {
+            instance['id']: {
             'id': instance['id'],
             'name': instance['name'],
             'tin': instance['tin'],
             'utr': instance['utr']
+        }
         }
 
 
@@ -102,6 +109,7 @@ class HeadquartersUpdateSerializer(serializers.Serializer):
         instance.save()
         return updated_headquarter
         
+
 class HeadquartersListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Headquarters
@@ -112,13 +120,16 @@ class HeadquartersListSerializer(serializers.ModelSerializer):
         business_key = instance['business_key']
         business = Business.objects.filter(id=business_key).values('name').first()
         return {
+            instance['id']: {
             'id': instance['id'],
             'name': instance['name'],
             'address': instance['address'],
             'phone': instance['phone'],
             'business_key': instance['business_key'],
             'business_name': business['name'] if business else 'N/A'
+            }
         }
+
 
 class InternalLocationSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
@@ -159,3 +170,100 @@ class InternalLocationSerializer(serializers.Serializer):
             return value
             
    
+class InternalLocationCheckSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    name = serializers.CharField(max_length=100)
+    headquarters_key = serializers.PrimaryKeyRelatedField(queryset=Headquarters.objects.all())
+    floor = serializers.CharField(max_length=10)
+    room_number = serializers.CharField(max_length=10)
+
+    def validate_name(self, value):
+        if not value:
+            raise serializers.ValidationError("Name is required.")
+        if len(value) < 3:
+            raise serializers.ValidationError("Name must be at least 3 characters long.")
+        return value
+    
+    def validate_floor(self, value):
+        if not value:
+            raise serializers.ValidationError("Floor is required.")
+        if len(value) < 3:
+            raise serializers.ValidationError("Floor must be at least 3 character long.")
+        return value
+    
+    def validate_room_number(self, value):
+        if not value:
+            raise serializers.ValidationError("Room number is required.")
+        if len(value) < 3:
+            raise serializers.ValidationError("Room number must be at least 3 character long.")
+        return value
+
+    def validate_headquarters_key(self, value):
+            if not value:
+                raise serializers.ValidationError("Headquarters key is required.")
+            if not Headquarters.objects.filter(id=value.id).exists():
+                raise serializers.ValidationError("Headquarters does not exist.")
+            return value
+
+
+
+class InternalLocationListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = InternalLocation
+        fields = '__all__'
+
+    def to_representation(self, instance):
+        # data = super().to_representation(instance) #this def representation is used to get the data is instance is a object
+        headquarter_key = instance['headquarters_key']
+        headquarter = Headquarters.objects.filter(id=headquarter_key).values('name').first()
+        return {
+            instance['id']: {
+            'id': instance['id'],
+            'name': instance['name'],
+            'floor': instance['floor'],
+            'room_number': instance['room_number'],
+            'headquarters_key': instance['headquarters_key'],
+            'headquarter_name': headquarter['name'] if headquarter else 'N/A'
+            }
+        }
+    
+class InternalLocationUpdateSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    name = serializers.CharField(max_length=100)
+    headquarters_key = serializers.PrimaryKeyRelatedField(queryset=Headquarters.objects.all())
+    floor = serializers.CharField(max_length=10)
+    room_number = serializers.CharField(max_length=10)
+
+    def validate_name(self, value):
+        if not value:
+            raise serializers.ValidationError("Name is required.")
+        if len(value) < 3:
+            raise serializers.ValidationError("Name must be at least 3 characters long.")
+        return value
+    
+    def validate_floor(self, value):
+        if not value:
+            raise serializers.ValidationError("Floor is required.")
+        if len(value) < 3:
+            raise serializers.ValidationError("Floor must be at least 3 character long.")
+        return value
+    
+    def validate_room_number(self, value):
+        if not value:
+            raise serializers.ValidationError("Room number is required.")
+        if len(value) < 3:
+            raise serializers.ValidationError("Room number must be at least 3 character long.")
+        return value
+
+    def validate_headquarters_key(self, value):
+            if not value:
+                raise serializers.ValidationError("Headquarters key is required.")
+            if not Headquarters.objects.filter(id=value.id).exists():
+                raise serializers.ValidationError("Headquarters does not exist.")
+            return value
+    
+    def update(self, instance, validated_data):
+        instance.name = validated_data.get('name', instance.name)
+        instance.floor = validated_data.get('floor', instance.floor)
+        instance.room_number = validated_data.get('room_number', instance.room_number)
+        return super().update(instance, validated_data)

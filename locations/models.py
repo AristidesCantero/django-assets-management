@@ -46,3 +46,9 @@ class InternalLocation(models.Model):
 
     def __str__(self):
         return self.name + (' Piso: '+ self.floor) if self.floor else ""
+    
+    def update(self, **kwargs):
+        for attr, value in kwargs.items():
+            setattr(self, attr, value)
+        self.save()
+        return self
