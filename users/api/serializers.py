@@ -1,22 +1,59 @@
 from rest_framework import serializers
 from users.models import User
+from django.contrib.postgres.fields import ArrayField
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from permissions.serializers import AdminPermissionSerializer
+from permissions.models import AdminPermission
+from rest_framework.validators import UniqueValidator, ValidationError, UniqueTogetherValidator
+from users.api.validators import validate_name, validate_last_name, validate_email
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = '__all__'
-        
-        
+
     def create(self, validated_data):
-        user = User(**validated_data)
-        user.set_password(validated_data['password'])
-        user.save()
-        return user
+
+        return super().create(validated_data)
     
     def update(self, instance, validated_data):
         updated_user = super().update(instance, validated_data)
         updated_user.set_password(validated_data['password'])
         updated_user.save()
+        return updated_user
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        return {
+            'id': instance.id,
+            'username': instance.username,
+            'email': instance.email,
+            'name': instance.name,
+            'last_name': instance.last_name,
+            'image': instance.image.url if instance.image else None,
+            'is_active': instance.is_active,
+            'is_staff': instance.is_staff,
+        }
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with that email already exists.")
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("A user with that username already exists.")
+        
+        return value
+
+
+
+    class Meta:
+        model = User
+        fields = '__all__'
+    
+    def update(self, instance, validated_data):
+        updated_user = super().update(instance, validated_data)
+        if 'password' in validated_data:
+            updated_user.set_password(validated_data['password'])
+            updated_user.save()
         return updated_user
 
 
@@ -31,10 +68,137 @@ class UserListSerializer(serializers.ModelSerializer):
         return {
             'id': instance['id'],
             'username': instance['username'],
-            'email': instance['email'],
-            'password': instance['password']
+            'email': instance['email']
         }
 
 
+
+class UserAdminSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = '__all__'
+        
+    name = serializers.CharField(validators=[validate_name])
+    last_name = serializers.CharField(required=True,validators=[validate_last_name])
+    email = serializers.EmailField(required=True,validators=[validate_email],)
+    permission_type = ArrayField(serializers.ListField(required=True))
+
+
+    permission_classes = [AdminPermissionSerializer]
+    
+    def get_queryset(self, pk):
+        queryset = User.objects.get(pk=pk)
+        adminPermission = AdminPermission.objects.filter(user_key=queryset.id).first()
+        if not adminPermission.exists():
+            return None
+        return [queryset, adminPermission]
+
+
+
+    def create(self, validated_data):
+        try:
+            user = User.objects.create_user(**validated_data)
+            user.save()
+            admin_permission_serializer = AdminPermissionSerializer(data={"user_key": user.id, "permission_type": validated_data.get('given_permissions', [])})
+            if admin_permission_serializer.is_valid(raise_exception=True):
+                admin_permission_serializer.save()
+            else:
+                user.delete()  # Rollback user creation if permissions are invalid
+                raise ValidationError(admin_permission_serializer.errors)
+
+            admin_permission_data = {"user_key": user.id, "permission_type": validated_data.get('permission_type', [])}
+
+        except Exception as e:
+            raise ValidationError(f"Error creating user: {str(e)}")
+            
+        return super().create(validated_data)
+    
+
+    def update(self, instance, validated_data):
+        user = User.objects.get(id=instance.id)
+        adminPermission = AdminPermission.objects.filter(user_key=instance.id).first()
+        
+        if not adminPermission:
+            return serializers.ValidationError("This user dont have administrative role.")
+            
+        #actualiza la informacion del usuario
+        updated_user = super().update(instance, validated_data)
+
+        #guarda la info de adminPermission
+        adminPermissionSerializer = AdminPermissionSerializer(adminPermission, 
+                                                              data={"permission_type": validated_data.get('permissions', adminPermission.permission_type)}
+                                                                ,partial=True)
+        
+        if not adminPermissionSerializer.is_valid():
+            return serializers.ValidationError("Admin permission has invalid format.")
+
+        if 'password' in validated_data:
+            updated_user.set_password(validated_data['password'])
+
+        adminPermissionSerializer.save()
+        updated_user.save()
+        return updated_user
+    
+    def validate_email(self, value):
+        user_id = self.instance.id if self.instance else None
+        if User.objects.filter(email=value).exclude(id=user_id).exists():
+            raise serializers.ValidationError("A user with that email already exists.")
+        if User.objects.filter(username=value).exclude(id=user_id).exists():
+            raise serializers.ValidationError("A user with that username already exists.")
+        
+        return value
+            
+
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        return {
+            'id': instance.id,
+            'username': instance.username,
+            'email': instance.email,
+            'name': instance.name,
+            'last_name': instance.last_name,
+            'image': instance.image.url if instance.image else None,
+            'is_active': instance.is_active,
+            'is_staff': instance.is_staff,
+            'permissions': AdminPermission.objects.filter(user_key=instance.id).first().permission_type
+        }
         
 
+
+class UserAdminListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = '__all__'
+
+    def get_queryset(self):
+        users = self.Meta.model.objects.all()
+        queryset = [user for user in users if AdminPermission.objects.filter(user_key=user.id).exists()]
+        return queryset
+    
+    def to_representation(self, instance):
+        permissions = AdminPermission.objects.filter(user_key=instance.id).first().permission_type
+        return {
+            'id': instance.id,
+            'username': instance.username,
+            'email': instance.email,
+            'name': instance.name,
+            'last_name': instance.last_name,
+            'image': instance.image.url if instance.image else None,
+            'is_active': instance.is_active,
+            'is_staff': instance.is_staff,
+            'permissions': permissions,
+        }
+    
+
+
+class UserTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+
+        # Add custom claims
+        token['id'] = user.id
+        # ...
+
+        return token

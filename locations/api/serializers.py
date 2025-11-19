@@ -1,6 +1,9 @@
 from rest_framework import serializers
 from locations.models import Business, Headquarters, InternalLocation
+from locations.models import UserBusinessMember
+from users.models import User
 import re
+
 
 
 class BusinessSerializer(serializers.ModelSerializer):
@@ -18,6 +21,7 @@ class BusinessCheckSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=255)
     tin = serializers.CharField(max_length=255)
     utr = serializers.CharField(max_length=255)
+    
 
 
     def validate_name(self, value):
@@ -53,6 +57,51 @@ class BusinessListSerializer(serializers.ModelSerializer):
         }
         }
 
+
+class UserBusinessMemberSerializer(serializers.Serializer):
+    class Meta:
+        model = UserBusinessMember
+        fields = '__all__'
+
+    id = serializers.IntegerField(read_only=True)
+    user_key = serializers.IntegerField(min_value=0)
+    business_key = serializers.IntegerField(min_value=0)
+
+    def validate_user_key(self, value):
+        if not value:
+            raise serializers.ValidationError("User key is required.")
+        from users.models import User
+        if not User.objects.filter(id=value).exists():
+            raise serializers.ValidationError("User does not exist.")
+        return value
+
+    def validate_business_key(self, value):
+        if not value:
+            raise serializers.ValidationError("Business key is required.")
+        if not Business.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Business does not exist.")
+        return value
+
+class UserBusinessListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserBusinessMember
+        fields = '__all__'
+
+    def to_representation(self, instance):
+        # data = super().to_representation(instance) #this def representation is used to get the data is instance is a object
+        user_key = instance['user_key']
+        business_key = instance['business_key']
+        user = User.objects.filter(id=user_key).values('email').first()
+        business = Business.objects.filter(id=business_key).values('name').first()
+        return {
+            instance['id']: {
+            'id': instance['id'],
+            'user_key': instance['user_key'],
+            'user_email': user['email'] if user else 'N/A',
+            'business_key': instance['business_key'],
+            'business_name': business['name'] if business else 'N/A'
+            }
+        }
 
 class HeadquartersCheckSerializer(serializers.Serializer):        
         id=serializers.IntegerField(read_only=True)

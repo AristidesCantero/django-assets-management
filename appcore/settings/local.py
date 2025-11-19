@@ -34,11 +34,11 @@ MEDIA_URL = '/images/'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('POSTGRES_NAME_LOCAL'),
-        'USER': config('POSTGRES_USER_LOCAL'),
-        'PASSWORD': config('POSTGRES_PASSWORD_LOCAL'),
-        'HOST': config('POSTGRES_HOST_LOCAL'),
-        'PORT': config('POSTGRES_PORT_LOCAL'),
+        'NAME': os.getenv('POSTGRES_NAME_LOCAL'),
+        'USER': os.getenv('POSTGRES_USER_LOCAL'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD_LOCAL'),
+        'HOST': 'db',
+        'PORT': 5432,
     },
 
     'sqlite': {

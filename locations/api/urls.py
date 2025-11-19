@@ -5,6 +5,8 @@ from locations.api.views.general_views import InternalLocationListAPIView, Inter
 urlpatterns = [
     path('businesses',BusinessListCreateAPIView.as_view(),name='business_api_view'),
     path('business/<int:pk>',BusinessRetrieveUpdateDestroyAPIView.as_view(),name='business_detail_api_view'),
+    path('userbusinesses',UserBusinessListCreateAPIView.as_view(),name='user_business_api_view'),
+    path('userbusiness/<int:pk>',UserBusinessRetrieveUpdateDestroyAPIView.as_view(),name='user_business_by_user_api_view'),
     path('headquarters',headquarters_api_view,name='headquarters_api_view'),
     path('headquarters/<int:pk>',headquarters_by_business_api_view,name='headquarters_by_business_api_view'),
     path('headquarter/<int:pk>',headquarters_detail_api_view,name='headquarters_detail_api_view'),

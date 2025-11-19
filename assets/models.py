@@ -7,7 +7,7 @@ DEFAULT_SYSTEM_SEGREGATIONS = ["Electrico","Hidráulico","Neumático","Mecánico
 
 class SystemSegregation(models.Model):
     type = models.CharField(max_length=100)
-    description = models.CharField(max_length=200)
+    description = models.CharField(max_length=255)
 
 class Asset(models.Model):
     name = models.CharField(max_length=100)

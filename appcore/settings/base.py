@@ -1,6 +1,7 @@
 
 from pathlib import Path
 import os
+from datetime import timedelta
 from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -13,6 +14,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY')
+DEBUG = config('DEBUG', default=True, cast=bool)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 
@@ -36,10 +38,12 @@ LOCAL_APPS = [
     'components.apps.ComponentsConfig',
     'locations.apps.LocationsConfig',
     'users.apps.UsersConfig',
+    'permissions.apps.PermissionsConfig',
 ]
 
 THIRD_APPS = [
     'rest_framework',
+    'rest_framework_simplejwt',
     'corsheaders',
     'simple_history',
     'drf_yasg'
@@ -60,6 +64,7 @@ MIDDLEWARE = [
 ]
 
 
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost', cast=lambda v: [s.strip() for s in v.split(',')])
 #if this is used then not need to use `CORS_ALLOWED_ORIGINS` because it will allow all the origins
 # CORS_ALLOWED_ORIGINS_REGEX = [
 #     "http://localhost:3000",
@@ -94,6 +99,10 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         # 'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly',
     ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        #'rest_framework.authentication.SessionAuthentication',
+        #'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
 }
 
 
@@ -114,6 +123,10 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME":timedelta(minutes=10),
+}
 
 
 # Internationalization

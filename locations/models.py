@@ -12,12 +12,32 @@ class Business(models.Model):
     def __str__(self):
         return self.name
     
+    def get_plural(self):
+        return self.__class__.__name__.lower() + 'es'
+    
     def update(self, **kwargs):
         for attr, value in kwargs.items():
             setattr(self, attr, value)
         self.save()
         return self
     
+class UserBusinessMember(models.Model):
+    user_key = models.ForeignKey('users.User', on_delete=models.CASCADE)
+    business_key = models.ForeignKey(Business, on_delete=models.CASCADE)
+    creation_date = models.DateField(auto_now_add=True, blank=True, null=True)
+    update_date = models.DateField(auto_now=True, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.user_key.email} - {self.business_key.name} ({self.role})"
+    
+    def update(self, **kwargs):
+        for attr, value in kwargs.items():
+            setattr(self, attr, value)
+        self.save()
+        return self
+    
+    def get_plural(self):
+        return "userbusinessmembers"
 
 class Headquarters(models.Model):
     name = models.CharField(max_length=100)
@@ -36,6 +56,9 @@ class Headquarters(models.Model):
         self.save()
         return self
     
+    def get_plural(self):
+        return "headquarters"
+    
 class InternalLocation(models.Model):
     name = models.CharField(max_length=100)
     floor = models.CharField(max_length=50)
@@ -52,3 +75,7 @@ class InternalLocation(models.Model):
             setattr(self, attr, value)
         self.save()
         return self
+    
+    def get_plural(self):
+        return "internallocations"
+

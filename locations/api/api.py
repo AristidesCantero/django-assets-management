@@ -1,15 +1,17 @@
-from django.shortcuts import render, redirect
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework import status
-from locations.models import Headquarters, Business, InternalLocation
+from rest_framework.authentication import TokenAuthentication, SessionAuthentication, BasicAuthentication
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from locations.models import Headquarters, Business, InternalLocation, UserBusinessMember
 from locations.api.serializers import *
 # Create your views here.
 
 
 @api_view(['GET','PUT','DELETE'])
+@authentication_classes([TokenAuthentication, SessionAuthentication, BasicAuthentication])
 def business_detail_api_view(request, pk=None):
     business = Business.objects.filter(id=pk).first()
     response_data = {}
@@ -53,6 +55,7 @@ class BusinessListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = BusinessCheckSerializer
 
     def get_queryset(self, pk=None):
+
         if pk is None:
             return BusinessCheckSerializer.Meta.model.objects.all()
         return self.serializer_class.Meta.model.objects.filter(id=pk).first()
@@ -80,6 +83,7 @@ class BusinessListCreateAPIView(generics.ListCreateAPIView):
 
 class BusinessRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = BusinessCheckSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self, pk=None):
         return self.serializer_class.Meta.model.objects.filter(id=pk).first()
@@ -133,6 +137,89 @@ class BusinessRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView
         return Response(response_data, status=status.HTTP_404_NOT_FOUND)
             
         
+class UserBusinessRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = UserBusinessMemberSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self, pk=None):
+        return self.serializer_class.Meta.model.objects.filter(id=pk).first()
+    
+    def get(self, request, pk=None):
+        user_business = self.get_queryset(pk=pk)
+        response_data = {}
+        if user_business:
+            serializer = self.serializer_class(user_business)
+            response_data['data'] = serializer.data
+            return Response(response_data, status=status.HTTP_200_OK)
+        response_data['errors'] = 'No se ha encontrado la relación usuario-negocio'
+        response_data['message'] = 'La relación usuario-negocio no existe'
+        return Response(response_data, status=status.HTTP_404_NOT_FOUND)
+        
+    
+
+    def put(self, request, pk=None):
+        user_business = self.get_queryset(pk=pk)
+        response_data = {}
+        if user_business:
+            user_business_serializer = self.serializer_class(user_business, data = request.data)
+            if user_business_serializer.is_valid():
+                user_business_serializer.save()
+                response_data['data'] = user_business_serializer.data
+                response_data['message'] = 'Relación usuario-negocio actualizada correctamente'
+                return Response(response_data, status=status.HTTP_200_OK)
+            
+            response_data['errors'] = user_business_serializer.errors
+            response_data['message'] = 'Error al actualizar la relación usuario-negocio'
+            return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
+        
+        response_data['errors'] = 'No se ha encontrado la relación usuario-negocio'
+        response_data['message'] = 'La relación usuario-negocio no existe'
+        return Response(response_data, status=status.HTTP_404_NOT_FOUND)
+    
+    def delete(self, request, pk=None):
+        user_business = self.get_queryset(pk=pk)
+        response_data = {}
+
+        if user_business:
+            user_business_serializer = UserBusinessMemberSerializer(user_business)
+            data = user_business_serializer.data
+            response_data['data'] = data
+            response_data['message'] = 'Relación usuario-negocio eliminada correctamente'
+            user_business.delete()
+            return Response(response_data, status=status.HTTP_200_OK)
+        
+        response_data['errors'] = 'No se ha encontrado la relación usuario-negocio'
+        response_data['message'] = 'La relación usuario-negocio no existe'
+        return Response(response_data, status)
+
+
+class UserBusinessListCreateAPIView(generics.ListCreateAPIView):
+    serializer_class = UserBusinessMemberSerializer
+
+    def get_queryset(self, pk=None):
+        if pk is None:
+            return UserBusinessMemberSerializer.Meta.model.objects.all()
+        return self.serializer_class.Meta.model.objects.filter(id=pk).first()
+
+
+    def get(self, pk=None):
+        query = self.get_queryset().values('id','user_key','business_key')
+        context = {
+            'data':query
+        }
+        return Response(context, status=status.HTTP_200_OK)
+    
+    def post(self, request):
+        user_business_serializer = UserBusinessMemberSerializer(data = request.data)
+        response_data = {}
+
+        if user_business_serializer.is_valid():
+            user_business_serializer.save()
+            response_data['data'] = user_business_serializer.data
+            return Response(response_data, status=status.HTTP_201_CREATED)
+        response_data['errors'] = user_business_serializer.errors
+        response_data['message'] = 'Error al crear la relación usuario-negocio'
+        return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET','POST'])
 def headquarters_api_view(request):

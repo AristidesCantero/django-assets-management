@@ -1,0 +1,48 @@
+version: "3.8"
+services:
+  db:
+    image: postgres:15
+    container_name: postgres-djangoassets
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER_LOCAL}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD_LOCAL}
+      - POSTGRES_DB=${POSTGRES_NAME_LOCAL}
+    env_file:
+      - ./.env
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./db_drf:/var/lib/postgresql/data
+    networks:
+      - drf_network
+    #healthcheck:
+    #  test: ["CMD-SHELL", "pg_isready -U your_username -d your_database_name"]
+    #  interval: 5s
+    #  timeout: 5s
+    #  retries: 5
+
+  app:
+    container_name: drf_docker
+    build: .
+    volumes: 
+    - .:/django_app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+        #condition: service_healthy
+    networks:
+      - drf_network
+    env_file:
+      - ./.env
+volumes:
+  db_drf:
+
+networks:
+  drf_network:
+    driver: bridge 
+
+
+    
+
