@@ -9,6 +9,7 @@ from users.api.serializers import *
 from rest_framework_simplejwt.views import TokenObtainPairView
 from permissions.permissions import *
 from users.models import User
+from django.contrib.auth.models import Permission
 from permissions.models import AdminPermission
 
 
@@ -18,7 +19,7 @@ class UserListAPIView(ListCreateAPIView):
     serializer_class = UserSerializer
     queryset = serializer_class.Meta.model.objects.all()
     authentication_classes = [JWTAuthentication]
-    #permission_classes = [isAdmin]
+    permission_classes = [permissionsOverTheModel]
 
     def get_queryset(self):
         adminPermissions = AdminPermission.objects.all()
@@ -42,18 +43,23 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = UserSerializer
     authentication_classes = [JWTAuthentication]
     #permission_classes = [IsAdminUser]
-    queryset = User.objects.all()
+    #queryset = User.objects.all()
     
 
     def get(self, request, pk, *args, **kwargs):
         try:
+            print("Retrieving user with id:", pk)
             user = User.objects.get(pk=pk)
             self.check_object_permissions(request,user)
-            return Response(self.serializer_class(user).data, status=status.HTTP_200_OK)
+            response_data = {}
+            response_data['data'] = self.serializer_class(user).data
+            response_data['permissions'] = list(Permission.objects.filter(user=user).values_list('codename', 'id', flat=True))
+            return Response(response_data, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'detail': 'User has not been found.'}, status=status.HTTP_404_NOT_FOUND)
  
     def post(self, request, *args, **kwargs):
+            
             serializer = self.serializer_class(data=request.data)
             if serializer.is_valid():
                 serializer.save()
@@ -61,17 +67,17 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 
-    def get_permissions(self):
-         match self.request.method:
-            case 'GET':
-                self.permission_classes = [adminPermissionInModelsManager]
-            case 'POST':
-                self.permission_classes = [IsAdminUser]
-            case 'PUT':
-                self.permission_classes = [IsAdminUser]
-            case 'DELETE':
-                self.permission_classes = [IsAdminUser]
-         return super().get_permissions()
+ #   def get_permissions(self):
+ #        match self.request.method:
+ #           case 'GET':
+ #               self.permission_classes = [adminPermissionInModelsManager]
+ #           case 'POST':
+ #               self.permission_classes = [IsAdminUser]
+ #           case 'PUT':
+ #               self.permission_classes = [IsAdminUser]
+ #           case 'DELETE':
+ #               self.permission_classes = [IsAdminUser]
+ #        return super().get_permissions()
     
 
 #Admin users API views

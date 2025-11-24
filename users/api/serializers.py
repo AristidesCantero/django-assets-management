@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from users.models import User
 from locations.models import Business
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -8,6 +10,22 @@ from permissions.serializers import AdminPermissionSerializer
 from permissions.models import AdminPermission
 from rest_framework.validators import UniqueValidator, ValidationError, UniqueTogetherValidator
 from users.api.validators import validate_name, validate_last_name, validate_email
+
+
+DEFAULT_DJANGO_MODELS = [
+    'users'
+    'contenttypes',
+    'sessions',
+    'admin',
+    'auth',
+]
+
+DEFAULT_FORBIDDEN_MODELS = [
+    'admin',
+    'auth',
+    'contenttypes',
+    'sessions',
+]
 
 
 # Serializer only to create and search common users, defined for single user (not admin)
@@ -35,6 +53,18 @@ class UserSerializer(serializers.ModelSerializer):
     
     def to_representation(self, instance):
         data = super().to_representation(instance)
+        user = User.objects.get(id=instance.id)
+        #permissions = list(Permission.objects.all().values_list('codename','content_type', 'id'))
+        contenttypes = list(ContentType.objects.exclude(model__in=DEFAULT_DJANGO_MODELS).values_list('app_label','model','id'))
+        allPermissions = list(Permission.objects.all().values_list('codename','content_type', 'id'))
+        contents = {}
+        for contenttype in contenttypes:
+            contents[contenttype[2]] = {'app_label':contenttype[0],'model':contenttype[1],'permissions':[]}
+
+        for permission in allPermissions:
+            contents[permission[1]]['permissions'].append([permission[0],permission[2]])
+
+
         return {
             'id': instance.id,
             'username': instance.username,
@@ -44,6 +74,7 @@ class UserSerializer(serializers.ModelSerializer):
             'image': instance.image.url if instance.image else None,
             'is_active': instance.is_active,
             'is_staff': instance.is_staff,
+            'permissions': contenttypes
         }
 
     def validate_email(self, value):

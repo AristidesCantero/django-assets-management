@@ -1,4 +1,4 @@
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import BasePermission,DjangoModelPermissionsOrAnonReadOnly
 from rest_framework_simplejwt.views import TokenObtainPairView
 from users.models import User
 from django.db.models import Model
@@ -12,12 +12,15 @@ from permissions.models import AdminPermission, BusinessPermission, request_acti
 #-guests permission with predefined limitations and cannot be changed
 
 
-
+# model to make a special check if the business where the element belo
 class permissionOverThisBusiness(BasePermission):
     def has_permission(self, request, view):
         method = request.method
         try:
+            print("Checking business permissions for user id:", request.user.id)
+            
             user = User.objects.get(id=request.user.id)
+            
             businessPermission = BusinessPermission.objects.get(user_key=user.id)
             if not user.is_authenticated or not businessPermission:
                 return False
@@ -34,6 +37,17 @@ class permissionOverThisBusiness(BasePermission):
             return False
 
 
+
+class permissionsOverTheModel(DjangoModelPermissionsOrAnonReadOnly):
+    """
+    Similar to DjangoModelPermissions, but also includes object-level
+    permissions.
+    """
+    def has_permission(self, request, view):
+        return super().has_permission(request, view)
+    def has_object_permission(self, request, view, obj):
+        return super().has_object_permission(request, view, obj)
+    
 
 
 #access if the user is admin
