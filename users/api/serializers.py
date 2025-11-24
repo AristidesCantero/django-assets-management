@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from users.models import User
+from locations.models import Business
+from django.db import models
 from django.contrib.postgres.fields import ArrayField
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from permissions.serializers import AdminPermissionSerializer
@@ -7,19 +9,28 @@ from permissions.models import AdminPermission
 from rest_framework.validators import UniqueValidator, ValidationError, UniqueTogetherValidator
 from users.api.validators import validate_name, validate_last_name, validate_email
 
+
+# Serializer only to create and search common users, defined for single user (not admin)
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = '__all__'
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
+    def get_queryset(self):
+        queryset = User.objects.all()
+        return queryset
 
     def create(self, validated_data):
-
         return super().create(validated_data)
     
     def update(self, instance, validated_data):
         updated_user = super().update(instance, validated_data)
-        updated_user.set_password(validated_data['password'])
-        updated_user.save()
+        if 'password' in validated_data:
+            updated_user.set_password(validated_data['password'])
+            updated_user.save()
         return updated_user
     
     def to_representation(self, instance):
@@ -42,21 +53,10 @@ class UserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("A user with that username already exists.")
         
         return value
-
-
-
-    class Meta:
-        model = User
-        fields = '__all__'
     
-    def update(self, instance, validated_data):
-        updated_user = super().update(instance, validated_data)
-        if 'password' in validated_data:
-            updated_user.set_password(validated_data['password'])
-            updated_user.save()
-        return updated_user
+    
 
-
+#Serializer to list users with limited info
 class UserListSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -72,17 +72,19 @@ class UserListSerializer(serializers.ModelSerializer):
         }
 
 
-
+# Serializer to create and update admin users (only once)
 class UserAdminSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = '__all__'
+    
         
     name = serializers.CharField(validators=[validate_name])
     last_name = serializers.CharField(required=True,validators=[validate_last_name])
     email = serializers.EmailField(required=True,validators=[validate_email],)
     permission_type = ArrayField(serializers.ListField(required=True))
-
+    business_key = serializers.PrimaryKeyRelatedField(
+        queryset=Business.objects.all(),required=False, allow_null=True)
 
     permission_classes = [AdminPermissionSerializer]
     
@@ -165,7 +167,7 @@ class UserAdminSerializer(serializers.ModelSerializer):
         }
         
 
-
+# Serializer to list admin users with limited info
 class UserAdminListSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -188,10 +190,14 @@ class UserAdminListSerializer(serializers.ModelSerializer):
             'is_active': instance.is_active,
             'is_staff': instance.is_staff,
             'permissions': permissions,
+            'business_key': instance.business_key.id if instance.business_key else None
         }
     
 
 
+
+
+# class created to add custom claims to the JWT token
 class UserTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):

@@ -58,6 +58,8 @@ class User(AbstractUser, PermissionsMixin):
 
         
     
+
+    
 #permissions to do
 # the user can have access to ubscribed businesses
 # ver si se ha verificado que el usuario solo pueda acceder a negocios donde este inscrito (por comprobar)

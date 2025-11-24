@@ -1,23 +1,32 @@
 from rest_framework.response import Response
 from rest_framework.generics import RetrieveUpdateDestroyAPIView, ListCreateAPIView
 from rest_framework import status
-from users.models import User
+
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.decorators import permission_classes, authentication_classes
 from users.api.serializers import *
 from rest_framework_simplejwt.views import TokenObtainPairView
 from permissions.permissions import *
+from users.models import User
+from permissions.models import AdminPermission
 
 
 
-
+#Default user API views
 class UserListAPIView(ListCreateAPIView):
     serializer_class = UserSerializer
     queryset = serializer_class.Meta.model.objects.all()
     authentication_classes = [JWTAuthentication]
     #permission_classes = [isAdmin]
 
+    def get_queryset(self):
+        adminPermissions = AdminPermission.objects.all()
+        adminUsers = [permission.user_key for permission in adminPermissions]
+        users = User.objects.exclude(id__in=adminUsers)
+        return users
+    
+    
     def get(self, request, *args, **kwargs):
         
         #token = request.auth
@@ -65,7 +74,7 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
          return super().get_permissions()
     
 
-
+#Admin users API views
 class AdminUserAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = UserAdminSerializer
     authentication_classes = [JWTAuthentication]
@@ -95,8 +104,6 @@ class AdminUserAPIView(RetrieveUpdateDestroyAPIView):
             return Response({'detail': 'Admin user has not been found.'}, status=status.HTTP_404_NOT_FOUND)
         
         serializer = self.serializer_class(user, data=request.data, partial=True)
-
-         # Debugging output
 
         if serializer.is_valid():
             print('serializer data:', serializer.validated_data)
