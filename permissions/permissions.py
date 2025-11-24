@@ -2,6 +2,7 @@ from rest_framework.permissions import BasePermission
 from rest_framework_simplejwt.views import TokenObtainPairView
 from users.models import User
 from django.db.models import Model
+from django.apps import apps
 from permissions.models import AdminPermission, BusinessPermission, request_actions, AllPermissionChoices
 
 #objective permissions
@@ -11,6 +12,30 @@ from permissions.models import AdminPermission, BusinessPermission, request_acti
 #-guests permission with predefined limitations and cannot be changed
 
 
+
+class permissionOverThisBusiness(BasePermission):
+    def has_permission(self, request, view):
+        method = request.method
+        try:
+            user = User.objects.get(id=request.user.id)
+            businessPermission = BusinessPermission.objects.get(user_key=user.id)
+            if not user.is_authenticated or not businessPermission:
+                return False
+            return True
+        
+        except User.DoesNotExist:
+            print(f"No user has been identified")
+            return False
+        except BusinessPermission.DoesNotExist:
+            print(f"User {user.name} does not have business permissions.")
+            return False
+        except:
+            print("An error occurred while checking business permissions.")
+            return False
+
+
+
+
 #access if the user is admin
 class isAdmin(BasePermission):
     def has_permission(self, request, view):
@@ -18,23 +43,23 @@ class isAdmin(BasePermission):
         try:
             user = User.objects.get(id=request.user.id)
             adminPermission = AdminPermission.objects.get(user_key=user.id)
-            if not user.is_authenticated:
+            if not user.is_authenticated or not adminPermission:
                 return False
     
             return True
         
-        except:
+        except User.DoesNotExist:
             print(f"User does not exists")
             return False
+        except AdminPermission.DoesNotExist:
+            print(f"User {user.name} does not have admin permissions.")
+            return False
+        except:
+            print("An error occurred while checking admin permissions.")
+            return False
 
-        #except AdminPermission.DoesNotExist:
-        #    print(f"User {user.email} does not have admin permissions.")
-        #    return False
-        
-        
 
-
-#access if its admin and has the permission to do the action
+#check in the 
 class adminPermissionInModelsManager(isAdmin):
 
     def has_permission(self, request, view):
@@ -45,6 +70,9 @@ class adminPermissionInModelsManager(isAdmin):
             return False
 
         try:
+            app = apps.get_models()
+
+
             object_model = obj.__class__.__name__.lower()  # e.g., 'businesses'
             
             if object_model not in ['business','headquarter','asset','component','user'] or not object_model:
@@ -61,6 +89,7 @@ class adminPermissionInModelsManager(isAdmin):
         except:
             print("Could not determine the object's model name.")
             return False            
+
 
 
 class isManager(BasePermission):

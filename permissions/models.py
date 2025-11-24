@@ -67,6 +67,7 @@ method_to_permission = {
 class AdminPermission(models.Model):
     user_key = models.OneToOneField(User, on_delete=models.CASCADE, related_name='admin_user')
     permission_type = ArrayField(models.IntegerField(AllPermissionChoices.choices, default=AllPermissionChoices.READ_USERS,null=False))
+    #business_permission_key = models.OneToOneField(Business, on_delete=models.CASCADE, related_name='admin_business')
     
     def create(self, validated_data):
         return super().create(validated_data)
