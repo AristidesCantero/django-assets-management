@@ -1,9 +1,10 @@
 from django.db import models
+from appcore.models import BaseModel
 from assets.models import *
 
 # Create your models here.
 
-class AssetSystem(models.Model):
+class AssetSystem(BaseModel):
     name = models.CharField(max_length=100)
     part_number = models.CharField(max_length=255)
     serial_number = models.CharField(max_length=255, null=True, blank=True)
@@ -18,7 +19,7 @@ class AssetSystem(models.Model):
         verbose_name_plural = 'Asset Systems'
         
 
-class SubsystemComponent(models.Model):
+class SubsystemComponent(BaseModel):
     name = models.CharField(max_length=100)
     part_number = models.CharField(max_length=255)
     serial_number = models.CharField(max_length=255, null=True, blank=True)
@@ -33,7 +34,7 @@ class SubsystemComponent(models.Model):
         verbose_name_plural = 'Subsystem Components'
     
 
-class MinimumComponent(models.Model):
+class MinimumComponent(BaseModel):
     name = models.CharField(max_length=100)
     part_number = models.CharField(max_length=255)
     serial_number = models.CharField(max_length=255, null=True, blank=True)

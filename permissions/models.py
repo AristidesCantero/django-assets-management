@@ -1,6 +1,6 @@
 from django.db import models
 from users.models import User
-from assets.models import Asset
+from appcore.models import BaseModel
 from locations.models import Business
 from django.contrib.postgres.fields import ArrayField
 from rest_framework_simplejwt.tokens import AccessToken
@@ -62,35 +62,17 @@ method_to_permission = {
             'PATCH': 'update_',
             'DELETE': 'delete_'}
 
-
-#Class to manage which permissions the admin have enabled
-class AdminPermission(models.Model):
-    user_key = models.OneToOneField(User, on_delete=models.CASCADE, related_name='admin_user')
-    permission_type = ArrayField(models.IntegerField(AllPermissionChoices.choices, default=AllPermissionChoices.READ_USERS,null=False))
-    #business_permission_key = models.OneToOneField(Business, on_delete=models.CASCADE, related_name='admin_business')
-    
-    def create(self, validated_data):
-        return super().create(validated_data)
     
 
 
 
 
 #Clas to manage the bussinesses the user can access
-class BusinessPermission(models.Model):
+class BusinessPermission(BaseModel):
     user_key = models.ForeignKey(User, on_delete=models.CASCADE)
     business_key = models.OneToOneField(Business, on_delete=models.CASCADE, related_name='authorized_business')
 
     
-#Class to manage which permissions the manager have enabled
-class ManagerPermission(models.Model):
-    user_key = models.ForeignKey(User, on_delete=models.CASCADE)
-    permission_type = ArrayField(models.IntegerField(manage_permission_choices, default=manage_permission_choices[0],null=False))
-
-    def user_can(self, method, model_plural) -> bool:
-        permission = method_to_permission[method] + model_plural
-
-        return permission in self.permission_type and permission in AllPermissionChoices.values
 
 
 

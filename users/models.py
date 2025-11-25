@@ -47,38 +47,6 @@ class User(AbstractUser, PermissionsMixin):
     def __str__(self):
         return self.email
     
-    def get_business(self):
-        return self.business_key
-    
-    def get_businesses(self):
-        return Business.objects.filter(userbusinessmember__user_key=self.id)
-    
     def get_plural(self):
         return 'users'
 
-        
-    
-
-    
-#permissions to do
-# the user can have access to ubscribed businesses
-# ver si se ha verificado que el usuario solo pueda acceder a negocios donde este inscrito (por comprobar)
-
-
-# the users will have access to the locations where they are subscribed
-#no implementado aun
- 
-# roles (grupos): superadmin, administrator, manager, user
-#por definir capacidades
-
-
-# permissions (permisos): add, change, delete, view
-#por definir capacidades junto a roles
-
-# check a way to allow admin and superadmin to determine what changes can a manager do
-#establecer permisos de manager para que no pueda hacer todo lo que un admin pero que un admin pueda asignarle permisos a un manager
-
-# what users can exists u¿in multiple businesses?
-
-#what level of access a normal worker have? (view only?)
-        

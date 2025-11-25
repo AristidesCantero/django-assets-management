@@ -1,15 +1,16 @@
 from django.db import models
 from simple_history.models import HistoricalRecords
+from appcore.models import BaseModel
 
 
 
 DEFAULT_SYSTEM_SEGREGATIONS = ["Electrico","Hidráulico","Neumático","Mecánico","Magnético"]
 
-class SystemSegregation(models.Model):
+class SystemSegregation(BaseModel):
     type = models.CharField(max_length=100)
     description = models.CharField(max_length=255)
 
-class Asset(models.Model):
+class Asset(BaseModel):
     name = models.CharField(max_length=100)
     manufacturer = models.CharField(max_length=255)
     family_model = models.CharField(max_length=255)

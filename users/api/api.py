@@ -10,16 +10,15 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from permissions.permissions import *
 from users.models import User
 from django.contrib.auth.models import Permission
-from permissions.models import AdminPermission
 
 
 
 #Default user API views
 class UserListAPIView(ListCreateAPIView):
-    serializer_class = UserSerializer
+    serializer_class = UserListSerializer
     queryset = serializer_class.Meta.model.objects.all()
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [permissionsOverTheModel]
+    #authentication_classes = [JWTAuthentication]
+    #permission_classes = [permissionsOverTheModel]
 
     def get_queryset(self):
         adminPermissions = AdminPermission.objects.all()
@@ -29,10 +28,14 @@ class UserListAPIView(ListCreateAPIView):
     
     
     def get(self, request, *args, **kwargs):
-        
-        #token = request.auth
-        #user = adminPermission.user_is_admin(token)
-        #print(user.username+" with an id: "+str(user.id)+" is trying to access the user list.")
+
+        try:
+            users = User.objects.all()
+            response_data = {}
+            response_data['data'] = self.serializer_class(users, many=True).data
+            return Response(response_data, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({'detail': 'User has not been found.'}, status=status.HTTP_404_NOT_FOUND)
 
         return super().get(request, *args, **kwargs)
     
@@ -42,29 +45,40 @@ class UserListAPIView(ListCreateAPIView):
 class UserAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = UserSerializer
     authentication_classes = [JWTAuthentication]
-    #permission_classes = [IsAdminUser]
-    #queryset = User.objects.all()
+    permission_classes = [AllowAny]#[IsAdminUser]
+    queryset = User.objects.all()
     
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
     def get(self, request, pk, *args, **kwargs):
         try:
-            print("Retrieving user with id:", pk)
             user = User.objects.get(pk=pk)
             self.check_object_permissions(request,user)
-            response_data = {}
-            response_data['data'] = self.serializer_class(user).data
-            response_data['permissions'] = list(Permission.objects.filter(user=user).values_list('codename', 'id', flat=True))
+
+            response_data = {
+                'data': self.serializer_class(user,context={'request': request}).data
+            }
             return Response(response_data, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'detail': 'User has not been found.'}, status=status.HTTP_404_NOT_FOUND)
  
-    def post(self, request, *args, **kwargs):
-            
-            serializer = self.serializer_class(data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def put(self, request, pk, *args, **kwargs):
+        try:
+            user = User.objects.get(pk=pk)
+            self.check_object_permissions(request,user)
+        except User.DoesNotExist:
+            return Response({'detail': 'User has not been found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = self.serializer_class(user, data=request.data, partial=True, context={'request': request})
+
+        if serializer.is_valid():
+            serializer.update(user, request.data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
 
  #   def get_permissions(self):
@@ -82,7 +96,7 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
 
 #Admin users API views
 class AdminUserAPIView(RetrieveUpdateDestroyAPIView):
-    serializer_class = UserAdminSerializer
+    serializer_class = UserSerializer
     authentication_classes = [JWTAuthentication]
     #permission_classes = [isAdmin]#, adminPermissionInModelsManager]
     queryset = User.objects.all()
@@ -145,14 +159,13 @@ class AdminUserAPIView(RetrieveUpdateDestroyAPIView):
     
 
 class AdminUserListAPIView(ListCreateAPIView):
-    serializer_class = UserAdminListSerializer
+    serializer_class = UserListSerializer
     #authentication_classes = [JWTAuthentication]
     #permission_classes = [isAdmin]
 
     def get_queryset(self):
         users = self.serializer_class.Meta.model.objects.all()
-        admin_users = [user for user in users if AdminPermission.objects.filter(user_key=user.id).exists()]
-        return admin_users
+        return users
 
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
