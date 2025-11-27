@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from users.models import User
 from locations.models import Business
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import Permission, Group
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
@@ -145,8 +145,117 @@ class UserListSerializer(serializers.ModelSerializer):
             
     
 
+class GroupListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Group
+        fields = '__all__'
+        extra_kwargs = {
+            'name': {'validators': [UniqueValidator(queryset=Group.objects.all(), message="A group with that name already exists.")],
+                     'required': True},
+            'permissions': {'required': False},
+        }
+    
+    permissions = serializers.DictField(child=serializers.BooleanField() , required=False)
+
+    def get_queryset(self):
+        queryset = Group.objects.all()
+        return queryset
+    
+
+    def create(self, validated_data):
+            
+            permissions = validated_data.get('permissions', {})
+            is_permission = 'permissions' in validated_data
+            validated_data.pop('permissions', None)
+            group = super().create(validated_data)
+            
+
+            if is_permission:
+                
+                for group_permission, is_marked in permissions.items():
+                    try:
+                        permission = Permission.objects.get(id=group_permission)
+                        if is_marked:
+                            group.permissions.add(permission)
+                    except Permission.DoesNotExist:
+                        raise ValidationError(f"Permission with id {group_permission} does not exist.")
+                    
+            return group
 
 
+    def group_permissions_representation(self, instance):
+        group = Group.objects.get(id=instance.id)
+        permissions = group.permissions.filter()
+    
+    def validate_permissions(self, value):
+        for group_permission, is_marked in value:
+            try:
+                Permission.objects.get(id=group_permission)
+            except Permission.DoesNotExist:
+                raise ValidationError(f"Permission with id {group_permission} does not exist.")  
+        return value
+
+
+    def to_representation(self, instance):
+        group_permissions = self.group_permissions_representation(instance)
+        return {
+            'id': instance.id,
+            'name': instance.name,
+            'permissions': [(perm.id, perm.name) for perm in instance.permissions.all()],
+        }
+
+
+
+class GroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Group
+        fields = '__all__'
+        extra_kwargs = {
+            'name': {'validators': [UniqueValidator(queryset=Group.objects.all(), message="A group with that name already exists.")],
+                     'required': True},
+            'permissions': {'required': False},
+        }
+
+    
+    group_permissions = serializers.DictField(child=serializers.BooleanField() , required=False)
+
+    def get_queryset(self, key):
+        group = Group.objects.get(id=key)
+        return group
+
+    def update(self, instance, validated_data):
+        updated_group = super().update(instance, validated_data)
+
+        if 'group_permissions' in validated_data:
+            group_permissions = validated_data['group_permissions']
+            
+            for group_permission, is_marked in group_permissions.items():
+                try:
+                    permission = Permission.objects.get(id=group_permission)
+                    if is_marked:
+                        updated_group.permissions.add(permission)
+                    else:
+                        updated_group.permissions.remove(permission)
+                except Permission.DoesNotExist:
+                            raise ValidationError(f"Permission with id {group_permission} does not exist.")  
+        
+        group_permissions = updated_group.permissions.all()
+
+        return updated_group
+
+
+
+
+    def representation(self, instance):
+        return {
+                    'id': instance.id,
+                    'name': instance.name,
+                    'permissions': [(perm.id, perm.name) for perm in instance.permissions.all()],
+                }
+
+
+    def to_representation(self, instance):
+        return self.representation(instance)
 
 # class created to add custom claims to the JWT token
 class UserTokenObtainPairSerializer(TokenObtainPairSerializer):

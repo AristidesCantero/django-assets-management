@@ -49,4 +49,3 @@ class User(AbstractUser, PermissionsMixin):
     
     def get_plural(self):
         return 'users'
-

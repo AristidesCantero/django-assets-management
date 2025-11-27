@@ -9,9 +9,85 @@ from users.api.serializers import *
 from rest_framework_simplejwt.views import TokenObtainPairView
 from permissions.permissions import *
 from users.models import User
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import Permission, Group
 
 
+class GroupAPIView(RetrieveUpdateDestroyAPIView):
+    serializer_class = GroupSerializer
+    #authentication_classes = [JWTAuthentication]
+    #permission_classes = [isAdmin]
+    queryset = Group.objects.all()
+    
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+    def get(self, request, pk, *args, **kwargs):
+        try:
+            group = Group.objects.get(pk=pk)
+            #self.check_object_permissions(request,group)
+
+            response_data = {
+                'data': self.serializer_class(group,context={'request': request}).data
+            }
+            return Response(response_data, status=status.HTTP_200_OK)
+        except Group.DoesNotExist:
+            return Response({'detail': 'Group has not been found.'}, status=status.HTTP_404_NOT_FOUND)
+ 
+    
+    def put(self, request, pk, *args, **kwargs):
+        try:
+            group = Group.objects.get(pk=pk)
+            self.check_object_permissions(request,group)
+        except Group.DoesNotExist:
+            return Response({'detail': 'Group has not been found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = self.serializer_class(group, data=request.data, partial=True, context={'request': request})
+
+        if serializer.is_valid():
+            serializer.update(group, request.data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+    def delete(self, request, *args, **kwargs):
+        try:
+            group = Group.objects.get(pk=kwargs['pk'])
+            group_serializer_data = self.serializer_class(group).data
+            group.delete()
+            return Response({'detail': 'Group has been deleted successfully.', "data": group_serializer_data}, status=status.HTTP_200_OK)
+        except Group.DoesNotExist:
+            return Response({'detail': 'Group has not been found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+
+
+class GroupListAPIView(ListCreateAPIView):
+    serializer_class = GroupListSerializer
+    queryset = serializer_class.Meta.model.objects.all()
+    #authentication_classes = [JWTAuthentication]
+    #permission_classes = [isAdmin]
+
+    def get(self, request, *args, **kwargs):
+        try:
+            groups = Group.objects.all()
+            response_data = {}
+            response_data['data'] = self.serializer_class(groups, many=True).data
+            return Response(response_data, status=status.HTTP_200_OK)
+        except Group.DoesNotExist:
+            return Response({'detail': 'Group has not been found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        return super().get(request, *args, **kwargs)
+    
+    def post(self, request, *args, **kwargs):
+
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        return super().post(request, *args, **kwargs)
 
 #Default user API views
 class UserListAPIView(ListCreateAPIView):
