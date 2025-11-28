@@ -39,6 +39,7 @@ class User(AbstractUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     historical = HistoricalRecords()
     objects = UserManager()
+   
     
 
     USERNAME_FIELD = 'email'

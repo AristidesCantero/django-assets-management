@@ -41,9 +41,11 @@ class ForbiddenGroupPermissionsListSerializer(serializers.ModelSerializer):
         return {
             'id': instance.id,
             'group': {
+                'id': instance.group.id,
                 'name': instance.group.name
             },  
             'permission': {
+                'id': instance.permission.id,
                 'codename': instance.permission.codename,
                 'name': instance.permission.name
             }
@@ -56,8 +58,15 @@ class ForbiddenGroupPermissionsSerializer(serializers.ModelSerializer):
         model = ForbiddenGroupPermissions
         fields = '__all__'
 
+    group = serializers.IntegerField()
+    permission = serializers.IntegerField()
+
     def update(self, instance, validated_data):
+        validated_data['permission'] = Permission.objects.get(id=validated_data['permission'])
+        validated_data['group'] = Group.objects.get(id=validated_data['group'])
+
         return super().update(instance, validated_data) 
+    
     
     def validate_group(self, value):
         if not isinstance(value, int):
@@ -82,6 +91,7 @@ class ForbiddenGroupPermissionsSerializer(serializers.ModelSerializer):
         return {
             'id': instance.id,
             'group': {
+                'id'
                 'name': instance.group.name
             },  
             'permission': {

@@ -89,6 +89,9 @@ class GroupListAPIView(ListCreateAPIView):
 
         return super().post(request, *args, **kwargs)
 
+
+
+
 #Default user API views
 class UserListAPIView(ListCreateAPIView):
     serializer_class = UserListSerializer
@@ -97,9 +100,7 @@ class UserListAPIView(ListCreateAPIView):
     #permission_classes = [permissionsOverTheModel]
 
     def get_queryset(self):
-        adminPermissions = AdminPermission.objects.all()
-        adminUsers = [permission.user_key for permission in adminPermissions]
-        users = User.objects.exclude(id__in=adminUsers)
+        users = User.objects.all()
         return users
     
     
@@ -116,7 +117,11 @@ class UserListAPIView(ListCreateAPIView):
         return super().get(request, *args, **kwargs)
     
     def post(self, request, *args, **kwargs):
-        return super().post(request, *args, **kwargs)
+        serializer = self.serializer_class(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class UserAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = UserSerializer
@@ -156,6 +161,15 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+
+    def delete(self, request, *args, **kwargs):
+        try:
+            user = User.objects.get(pk=kwargs['pk'])
+            user_serializer_data = self.serializer_class(user, context={'request': request}).data
+            user.delete()
+            return Response({'detail': 'User has been deleted successfully.', "data": user_serializer_data}, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({'detail': 'User has not been found.'}, status=status.HTTP_404_NOT_FOUND)
 
  #   def get_permissions(self):
  #        match self.request.method:

@@ -24,6 +24,29 @@ class ForbiddenGroupPermissionsDetailAPI(RetrieveUpdateDestroyAPIView):
         except ForbiddenGroupPermissions.DoesNotExist:
             return Response({"detail": "Forbidden permission not found."}, status=status.HTTP_404_NOT_FOUND)
         
+    
+    def put(self, request, pk, *args, **kwargs):
+        try:
+            fpermission = ForbiddenGroupPermissions.objects.get(pk=pk)
+        except ForbiddenGroupPermissions.DoesNotExist:
+            return Response({"detail": "Forbidden permission not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = self.serializer_class(fpermission, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, pk, *args, **kwargs):
+        try:
+            fpermission = ForbiddenGroupPermissions.objects.get(pk=pk)
+            serialized_data = self.serializer_class(fpermission).data
+            fpermission.delete()
+            response_data = {}
+            response_data['data'] = serialized_data
+            return Response(response_data, status=status.HTTP_204_NO_CONTENT)
+        except ForbiddenGroupPermissions.DoesNotExist:
+            return Response({"detail": "Forbidden permission not found."}, status=status.HTTP_404_NOT_FOUND)
 
     
         
