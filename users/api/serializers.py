@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from users.models import User
-from locations.models import Business
+from permissions.models import ForbiddenGroupPermissions
 from django.contrib.auth.models import Permission, Group
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
@@ -171,7 +171,6 @@ class GroupListSerializer(serializers.ModelSerializer):
             
 
             if is_permission:
-                
                 for group_permission, is_marked in permissions.items():
                     try:
                         permission = Permission.objects.get(id=group_permission)
@@ -224,26 +223,52 @@ class GroupSerializer(serializers.ModelSerializer):
         return group
 
     def update(self, instance, validated_data):
+        
+        permissions = validated_data.get('permissions', {})
+        is_permission = 'permissions' in validated_data
+        validated_data.pop('permissions', None)
         updated_group = super().update(instance, validated_data)
-
-        if 'group_permissions' in validated_data:
-            group_permissions = validated_data['group_permissions']
             
-            for group_permission, is_marked in group_permissions.items():
+
+        if is_permission:
+            for group_permission, is_marked in permissions.items():
                 try:
                     permission = Permission.objects.get(id=group_permission)
                     if is_marked:
                         updated_group.permissions.add(permission)
                     else:
                         updated_group.permissions.remove(permission)
-                except Permission.DoesNotExist:
-                            raise ValidationError(f"Permission with id {group_permission} does not exist.")  
-        
-        group_permissions = updated_group.permissions.all()
 
+                except Permission.DoesNotExist:
+                    raise ValidationError(f"Permission with id {group_permission} does not exist.")
+                
+                except Permission.DoesNotExist:
+                    raise ValidationError(f"Permission with id {group_permission} does not exist.")
+                    
         return updated_group
 
 
+
+    def validate_permissions(self, perms):
+        group = self.instance
+
+        if not group:
+            # Si es creación, no hay permisos prohibidos definidos
+            return perms
+
+        forbidden = ForbiddenGroupPermissions.objects.filter(
+            group=group
+        ).values_list("permission_id", flat=True)
+
+        forbidden_found = [p for p in perms if p.id in forbidden]
+
+        if forbidden_found:
+            names = ", ".join([p.codename for p in forbidden_found])
+            raise serializers.ValidationError(
+                f"Este grupo tiene prohibido asignarse los siguientes permisos: {names}"
+            )
+
+        return perms
 
 
     def representation(self, instance):
@@ -256,6 +281,13 @@ class GroupSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         return self.representation(instance)
+
+
+
+
+
+
+
 
 # class created to add custom claims to the JWT token
 class UserTokenObtainPairSerializer(TokenObtainPairSerializer):
