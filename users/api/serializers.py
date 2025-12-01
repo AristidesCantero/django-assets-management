@@ -151,7 +151,12 @@ class UserListSerializer(serializers.ModelSerializer):
         validated_data.pop('groups', None)
         validated_data.pop('marked_fields', None)
 
+
+
+
         user = super().create(validated_data)
+        user.set_password(validated_data['password'])
+        user.save()
 
         if permissions:
             
@@ -180,6 +185,8 @@ class UserListSerializer(serializers.ModelSerializer):
 
         return user
     
+
+
     def representation(self, instance):
         return {
                     'id': instance.id,
