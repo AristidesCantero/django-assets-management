@@ -26,6 +26,42 @@ DEFAULT_FORBIDDEN_MODELS = [
 ]
 
 
+def set_user_permissions(user : User, permissions: dict[str,bool]):
+        for field, is_marked in permissions.items():
+            try:
+                permission = Permission.objects.get(id=field)
+                if is_marked:
+                    user.user_permissions.add(permission)
+                else:
+                    user.user_permissions.remove(permission)
+            except Permission.DoesNotExist:
+                raise ValidationError(f"Permission with id {field} does not exist.") 
+                
+
+def set_user_groups(user: User, groups: dict[str,bool]):
+          for group_field, is_marked in groups.items():
+                try:
+                    group = Group.objects.get(id=group_field)
+                    if is_marked:
+                        user.groups.add(group)
+                    else:
+                        user.groups.remove(group)
+                except Group.DoesNotExist:
+                    raise ValidationError(f"Group with id {group_field} does not exist.")
+               
+
+
+def set_group_permissions(group: Group, permissions: dict[str,bool]):
+        for group_permission, is_marked in permissions.items():
+                try:
+                    permission = Permission.objects.get(id=group_permission)
+                    if is_marked:
+                        group.permissions.add(permission)
+                except Permission.DoesNotExist:
+                    raise ValidationError(f"Permission with id {group_permission} does not exist.")
+
+
+
 # Serializer only to create and search common users, defined for single user (not admin)
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -33,56 +69,33 @@ class UserSerializer(serializers.ModelSerializer):
         fields = '__all__'
     
     password = serializers.CharField(write_only=True, required=False)
-
-    marked_fields = serializers.DictField(child=serializers.BooleanField(), required=False)
+    permissions = serializers.DictField(child=serializers.BooleanField(), required=False)
     groups = serializers.DictField(child=serializers.BooleanField() , required=False)
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
     
-    def get_queryset(self):
-        queryset = User.objects.all()
-        return queryset
+    def get_queryset(self, pk):
+        user = User.objects.get(pk=pk)
+        return user
 
     
     def update(self, instance, validated_data):
-        groups = validated_data.get('groups', {})
+        groups, permissions  = validated_data.get('groups', {}), validated_data.get('permissions', {})
         updated_user = super().update(instance, validated_data)
-
-        if 'marked_fields' in validated_data:
-            marked_fields = validated_data['marked_fields']
-            
-            for field, is_marked in marked_fields.items():
-                try:
-                    permission = Permission.objects.get(id=field)
-                    if is_marked:
-                        updated_user.user_permissions.add(permission)
-                    else:
-                        updated_user.user_permissions.remove(permission)
-                except Permission.DoesNotExist:
-                            raise ValidationError(f"Permission with id {field} does not exist.")  
-
-        else:
-            raise ValidationError(f"Permission with id {field} does not exist.")
-                
-
+        validated_data.pop('groups', None)
+        validated_data.pop('permissions', None)
+        
+        if permissions:
+            set_user_permissions(user=updated_user, permissions=permissions)                
 
         if groups:
-            for group_field, is_marked in groups.items():
-                try:
-                    group = Group.objects.get(id=group_field)
-                    if is_marked:
-                        updated_user.groups.add(group)
-                    else:
-                        updated_user.groups.remove(group)
-                except Group.DoesNotExist:
-                            raise ValidationError(f"Group with id {group_field} does not exist.")
+            set_user_groups(user=updated_user, permissions=permissions)
         
-
-
         if 'password' in validated_data:
             updated_user.set_password(validated_data['password'])
             updated_user.save()
+
         return updated_user
     
     def to_representation(self, instance):
@@ -91,10 +104,21 @@ class UserSerializer(serializers.ModelSerializer):
 
         # Representation of the use and all the permission this haves in the system
         user = User.objects.get(id=instance.id)
-        #permisos = user.user_permissions.all()
         contenttypes = [x for x in list(ContentType.objects.all().values_list('app_label','model','id')) if x[0] not in DEFAULT_DJANGO_MODELS]
         allPermissions = list(Permission.objects.all().exclude(codename__in=DEFAULT_FORBIDDEN_MODELS).values_list('codename','content_type','id'))
         userPermissions = [x.id for x in Permission.objects.filter(user=user)]
+
+        context = {
+            'id': instance.id,
+            'username': instance.username,
+            'email': instance.email,
+            'name': instance.name,
+            'last_name': instance.last_name,
+        }
+
+        if not method in ['GET','PUT','PATCH']:
+            return context
+ 
 
         contents = {}
 
@@ -105,13 +129,7 @@ class UserSerializer(serializers.ModelSerializer):
             if permission[1] in contents:
                 contents[permission[1]]['permissions'].append([permission[0],permission[2],permission[2] in userPermissions])
 
-        context = {
-            'id': instance.id,
-            'username': instance.username,
-            'email': instance.email,
-            'name': instance.name,
-            'last_name': instance.last_name,
-        }
+        
 
         if method in ['GET','PUT','PATCH']:
             context['permissions'] = contents
@@ -146,61 +164,33 @@ class UserListSerializer(serializers.ModelSerializer):
     
 
     def create(self, validated_data):
-        groups = validated_data.get('groups', {})
-        permissions = validated_data.get('marked_fields', {})
+        groups, permissions  = validated_data.get('groups', {}), validated_data.get('marked_fields', {})
         validated_data.pop('groups', None)
         validated_data.pop('marked_fields', None)
-
-
-
 
         user = super().create(validated_data)
         user.set_password(validated_data['password'])
         user.save()
 
         if permissions:
-            
-            for field, is_marked in permissions.items():
-                try:
-                    permission = Permission.objects.get(id=field)
-                    if is_marked:
-                        user.user_permissions.add(permission)
-                    else:
-                        user.user_permissions.remove(permission)
-                except Permission.DoesNotExist:
-                            raise ValidationError(f"Permission with id {field} does not exist.")  
-
+            set_user_permissions(user=user, permissions=permissions)
 
         if groups:
-            for group_field, is_marked in groups.items():
-                try:
-                    group = Group.objects.get(id=group_field)
-                    if is_marked:
-                        user.groups.add(group)
-                    else:
-                        user.groups.remove(group)
-                except Group.DoesNotExist:
-                            raise ValidationError(f"Group with id {group_field} does not exist.")
+           set_user_groups(user=user, groups=groups)
             
-
         return user
     
 
-
-    def representation(self, instance):
+    def to_representation(self, instance):
         return {
                     'id': instance.id,
                     'username': instance.username,
                     'name': instance.name,
                     'last_name': instance.last_name,
                     'email': instance.email,
-                    'permissions': [(perm.id, perm.name) for perm in instance.user_permissions.all()],
-                    'groups': [(group.id, group.name) for group in instance.groups.all()],
+                    'permissions': ", ".join([str(perm.id) for perm in instance.user_permissions.all()]),
+                    'groups': ", ".join([str(group.id) for group in instance.groups.all()]),
                 }
-
-
-    def to_representation(self, instance):
-        return self.representation(instance)
 
 
             
@@ -226,29 +216,15 @@ class GroupListSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
             
             permissions = validated_data.get('permissions', {})
-            groups = validated_data.get('groups', {})
-            is_permission = 'permissions' in validated_data
             validated_data.pop('permissions', None)
             group = super().create(validated_data)
             
-
-            if is_permission:
-                for group_permission, is_marked in permissions.items():
-                    try:
-                        permission = Permission.objects.get(id=group_permission)
-                        if is_marked:
-                            group.permissions.add(permission)
-                    except Permission.DoesNotExist:
-                        raise ValidationError(f"Permission with id {group_permission} does not exist.")
-                    
-            
+            if permissions:
+                set_group_permissions(group=group, permissions=permissions)
                     
             return group
+    
 
-
-    def group_permissions_representation(self, instance):
-        group = Group.objects.get(id=instance.id)
-        permissions = group.permissions.filter()
     
     def validate_permissions(self, value):
         for group_permission, is_marked in value:
@@ -264,7 +240,8 @@ class GroupListSerializer(serializers.ModelSerializer):
         return {
             'id': instance.id,
             'name': instance.name,
-            'permissions': [(perm.id, perm.name) for perm in instance.permissions.all()],
+            'permissions': ", ".join([str(perm.id) for perm in instance.permissions.all()]),
+            
         }
 
 
@@ -289,25 +266,12 @@ class GroupSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         
         permissions = validated_data.get('permissions', {})
-        is_permission = 'permissions' in validated_data
         validated_data.pop('permissions', None)
         updated_group = super().update(instance, validated_data)
             
 
-        if is_permission:
-            for group_permission, is_marked in permissions.items():
-                try:
-                    permission = Permission.objects.get(id=group_permission)
-                    if is_marked:
-                        updated_group.permissions.add(permission)
-                    else:
-                        updated_group.permissions.remove(permission)
-
-                except Permission.DoesNotExist:
-                    raise ValidationError(f"Permission with id {group_permission} does not exist.")
-                
-                except Permission.DoesNotExist:
-                    raise ValidationError(f"Permission with id {group_permission} does not exist.")
+        if permissions:
+            set_group_permissions(group=updated_group, permissions=permissions)
                     
         return updated_group
 
@@ -335,18 +299,12 @@ class GroupSerializer(serializers.ModelSerializer):
         return perms
 
 
-    def representation(self, instance):
+    def to_representation(self, instance):
         return {
                     'id': instance.id,
                     'name': instance.name,
                     'permissions': [(perm.id, perm.name) for perm in instance.permissions.all()],
                 }
-
-
-    def to_representation(self, instance):
-        return self.representation(instance)
-
-
 
 
 

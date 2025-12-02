@@ -48,9 +48,6 @@ class ForbiddenGroupPermissionsDetailAPI(RetrieveUpdateDestroyAPIView):
         except ForbiddenGroupPermissions.DoesNotExist:
             return Response({"detail": "Forbidden permission not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    
-        
-
 
 
 class ForbiddenGroupPermissionsListCreateAPI(ListCreateAPIView):

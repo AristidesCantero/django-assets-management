@@ -10,6 +10,13 @@ from django.apps import apps
 #-employee permission with limitations defined by an admin
 #-guests permission with predefined limitations and cannot be changed
 
+method_to_action = {
+    'GET': 'view',
+    'POST': 'add',
+    'PUT': 'change',
+    'PATCH': 'change',
+    'DELETE': 'delete'
+}
 
 # model to make a special check if the business where the element belo
 class permissionOverThisBusiness(BasePermission):
@@ -36,14 +43,20 @@ class permissionOverThisBusiness(BasePermission):
 
 
 class permissionsOverTheModel(DjangoModelPermissionsOrAnonReadOnly):
-    """
-    Similar to DjangoModelPermissions, but also includes object-level
-    permissions.
-    """
     def has_permission(self, request, view):
         return super().has_permission(request, view)
+    
+    #determines if the user has the permission for modeel and method (ex: users.view_users)
     def has_object_permission(self, request, view, obj):
-        return super().has_object_permission(request, view, obj)
+        user = request.user
+        if not user.is_authenticated:
+            return False
+        
+        method = request.method
+        permission_required = f'{obj._meta.app_label}.{method_to_action[method]}_{obj._meta.model_name}'
+        
+        return user.has_perm(permission_required)
+
     
 
 

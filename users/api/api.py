@@ -61,7 +61,6 @@ class GroupAPIView(RetrieveUpdateDestroyAPIView):
             return Response({'detail': 'Group has not been found.'}, status=status.HTTP_404_NOT_FOUND)
         
 
-
 class GroupListAPIView(ListCreateAPIView):
     serializer_class = GroupListSerializer
     queryset = serializer_class.Meta.model.objects.all()
@@ -105,8 +104,9 @@ class UserListAPIView(ListCreateAPIView):
     
     
     def get(self, request, *args, **kwargs):
-
         try:
+            user = request.user
+            self.check_object_permissions(request,user)
             users = User.objects.all()
             response_data = {}
             response_data['data'] = self.serializer_class(users, many=True).data
@@ -183,6 +183,8 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
  #               self.permission_classes = [IsAdminUser]
  #        return super().get_permissions()
     
+
+
 
 #Admin users API views
 class AdminUserAPIView(RetrieveUpdateDestroyAPIView):
@@ -263,5 +265,9 @@ class AdminUserListAPIView(ListCreateAPIView):
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
         
+
+
+
+
 class CustomizedTokenObtainPairView(TokenObtainPairView):
     serializer_class = UserTokenObtainPairSerializer
