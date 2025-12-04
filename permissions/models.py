@@ -24,9 +24,16 @@ class ForbiddenGroupPermissions(models.Model):
 
 
 #Clas to manage the bussinesses the user can access
-class BusinessPermission(BaseModel):
+class UserBusinessPermission(BaseModel):
     user_key = models.ForeignKey(User, on_delete=models.CASCADE)
-    business_key = models.OneToOneField(Business, on_delete=models.CASCADE, related_name='authorized_business')
+    business_key = models.ForeignKey(Business, on_delete=models.CASCADE)
+    permission = models.ForeignKey(Permission, on_delete=models.CASCADE)
+
+
+class GroupBusinessPermission(BaseModel):
+    group_key = models.ForeignKey(Group, on_delete=models.CASCADE)
+    business_key = models.ForeignKey(Business, on_delete=models.CASCADE)
+    permission = models.ForeignKey(Permission, on_delete=models.CASCADE)
 
     
 

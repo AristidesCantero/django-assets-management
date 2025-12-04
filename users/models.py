@@ -9,6 +9,9 @@ from django.db.models import Model
 
 class UserManager(BaseUserManager):
     def _create_user(self, username, email, name, last_name, password, is_staff, is_superuser, **extra_fields):
+        if not email:
+            raise ValueError('Users must have email address')
+
         user = self.model(
             email=self.normalize_email(email),
             username=username,
@@ -37,6 +40,7 @@ class User(AbstractUser, PermissionsMixin):
     image = models.ImageField('Imagen de Perfil', upload_to='perfil/', max_length=255, blank=True, null=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    date_joined = models.DateTimeField('Fecha de Creación', auto_now_add=True)
     historical = HistoricalRecords()
     objects = UserManager()
    

@@ -127,8 +127,13 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+
+AUTHENTICATION_BACKENDS = [
+    'permissions.backends.BusinessPermissionBackend',
+]
+
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME":timedelta(minutes=10),
+    "ACCESS_TOKEN_LIFETIME":timedelta(minutes=100),
 }
 
 
