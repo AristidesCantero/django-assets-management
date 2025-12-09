@@ -11,7 +11,7 @@ from users.api.validators import validate_name, validate_last_name, validate_ema
 
 
 DEFAULT_DJANGO_MODELS = [
-    "users",
+    #"users",
     "contenttypes",
     "sessions",
     "admin",

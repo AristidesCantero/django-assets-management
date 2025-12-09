@@ -10,6 +10,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from permissions.permissions import *
 from users.models import User
 from django.contrib.auth.models import Permission, Group
+from permissions.backends import BusinessPermissionBackend
 
 
 class GroupAPIView(RetrieveUpdateDestroyAPIView):
@@ -64,8 +65,8 @@ class GroupAPIView(RetrieveUpdateDestroyAPIView):
 class GroupListAPIView(ListCreateAPIView):
     serializer_class = GroupListSerializer
     queryset = serializer_class.Meta.model.objects.all()
-    #authentication_classes = [JWTAuthentication]
-    #permission_classes = [isAdmin]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [isAdmin]
 
     def get(self, request, *args, **kwargs):
         try:
@@ -95,8 +96,8 @@ class GroupListAPIView(ListCreateAPIView):
 class UserListAPIView(ListCreateAPIView):
     serializer_class = UserListSerializer
     queryset = serializer_class.Meta.model.objects.all()
-    #authentication_classes = [JWTAuthentication]
-    #permission_classes = [permissionsOverTheModel]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [permissionsOverTheModel]
 
     def get_queryset(self):
         users = User.objects.all()
@@ -106,8 +107,13 @@ class UserListAPIView(ListCreateAPIView):
     def get(self, request, *args, **kwargs):
         try:
             user = request.user
-            self.check_object_permissions(request,user)
+            user_has_permission = user.has_perm('users.view_user', obj = user)
+            print("user_has_permission:", user_has_permission)
+
+            #self.check_object_permissions(request,user)
             users = User.objects.all()
+
+
             response_data = {}
             response_data['data'] = self.serializer_class(users, many=True).data
             return Response(response_data, status=status.HTTP_200_OK)
@@ -126,7 +132,7 @@ class UserListAPIView(ListCreateAPIView):
 class UserAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = UserSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [AllowAny]#[IsAdminUser]
+    permission_classes = [permissionOverThisBusiness]#[IsAdminUser]
     queryset = User.objects.all()
     
     def get_serializer_context(self):

@@ -50,7 +50,7 @@ class User(AbstractUser, PermissionsMixin):
     REQUIRED_FIELDS = ['username', 'name', 'last_name']
 
     def __str__(self):
-        return self.email
+        return self.name + ' ' + self.last_name
     
     def get_plural(self):
         return 'users'

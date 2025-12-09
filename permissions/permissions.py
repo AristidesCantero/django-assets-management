@@ -31,6 +31,8 @@ class permissionOverThisBusiness(BasePermission):
 
             if not user.is_authenticated:
                 return False
+            
+            return user.has_perm(f'{obj._meta.app_label}.{method_to_action[method]}_{obj._meta.model_name}', obj=object_business)
             return True
         
         except User.DoesNotExist:
@@ -44,10 +46,15 @@ class permissionOverThisBusiness(BasePermission):
 
 class permissionsOverTheModel(DjangoModelPermissionsOrAnonReadOnly):
     def has_permission(self, request, view):
+        
+         
         return super().has_permission(request, view)
     
     #determines if the user has the permission for modeel and method (ex: users.view_users)
     def has_object_permission(self, request, view, obj):
+
+        
+
         user = request.user
         if not user.is_authenticated:
             return False
