@@ -74,6 +74,17 @@ def set_group_permissions(group: Group, permissions: dict[str,dict[str,bool]]):
 
 
 
+def pop_non_user_fields(validated_data: dict):
+        groups, permissions  = validated_data.get('groups', {}), validated_data.get('permissions', {})
+        validated_data.pop('groups', None)
+        validated_data.pop('permissions', None)
+
+        return validated_data, groups, permissions
+    
+    
+
+
+
 def handle_user_representation_contenttypes(user: User, contenttypes: list[tuple[str,str,int]], permissions: list[tuple[str,int,int]]):
     contents = {}
 
@@ -106,23 +117,21 @@ class UserSerializer(serializers.ModelSerializer):
 
     
     def update(self, instance, validated_data):
-        groups, permissions  = validated_data.get('groups', {}), validated_data.get('permissions', {})
+        validated_data, groups, permissions  = pop_non_user_fields(validated_data)
         updated_user = super().update(instance, validated_data)
-        validated_data.pop('groups', None)
-        validated_data.pop('permissions', None)
         
         if permissions:
             set_user_permissions(user=updated_user, permissions=permissions)                
-
         if groups:
             set_user_groups(user=updated_user, permissions=permissions)
-        
         if 'password' in validated_data:
             updated_user.set_password(validated_data['password'])
             updated_user.save()
 
         return updated_user
     
+
+
     def to_representation(self, instance):
         request = self.context.get('request')
         method = request.method 
@@ -182,28 +191,25 @@ class UserListSerializer(serializers.ModelSerializer):
     
 
     def create(self, validated_data):
-        groups, permissions  = validated_data.get('groups', {}), validated_data.get('permissions', {})
-        validated_data.pop('groups', None)
-        validated_data.pop('permissions', None)
-
+        validated_data, groups, permissions  = pop_non_user_fields(validated_data)
         user = super().create(validated_data)
         user.set_password(validated_data['password'])
         user.save()
 
         if permissions:
             set_user_permissions(user=user, permissions=permissions)
-
         if groups:
            set_user_groups(user=user, groups=groups)
             
         return user
     
 
-
     def validate_permissions(self, perms):
         validate_all_permissions(perms)              
 
 
+    def validate_groups(self, groups):
+        validate_all_groups(groups)
 
     def to_representation(self, instance):
         return {
@@ -238,7 +244,6 @@ class GroupListSerializer(serializers.ModelSerializer):
     
 
     def create(self, validated_data):
-            
             permissions = validated_data.get('permissions', {})
             validated_data.pop('permissions', None)
             group = super().create(validated_data)
@@ -286,13 +291,13 @@ class GroupSerializer(serializers.ModelSerializer):
         group = Group.objects.get(id=key)
         return group
 
+
     def update(self, instance, validated_data):
         
         permissions = validated_data.get('permissions', {})
         validated_data.pop('permissions', None)
         updated_group = super().update(instance, validated_data)
             
-
         if permissions:
             set_group_permissions(group=updated_group, permissions=permissions)
                     
@@ -372,5 +377,17 @@ def validate_all_permissions(instance):
         if all_invalid_p_keys:
             error_messages = []
             for business_id, invalid_perms in all_invalid_p_keys.items():
-                error_messages.append(f"( {business_id} : {', '.join(invalid_perms)} )")
+                error_messages.append(f"( Business id {business_id} : {', '.join(invalid_perms)} )")
             raise ValidationError('Invalid permission IDs found: ' + " ; ".join(error_messages))
+        
+        return instance
+
+def validate_all_groups(instance):
+        group_keys = set(instance.keys())
+        all_group_keys = set([str(group.id) for group in Group.objects.raw("SELECT id FROM auth_group")])
+        invalid_keys = group_keys - all_group_keys
+
+        if invalid_keys:
+            raise ValidationError(f"Invalid group IDs: {', '.join(invalid_keys)}")
+        
+        return instance

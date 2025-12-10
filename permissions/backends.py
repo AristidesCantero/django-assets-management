@@ -99,12 +99,9 @@ class BusinessPermissionBackend(ModelBackend):
         if user_obj is None:
             return False
 
-
-        # 1) superuser short-circuit
         if getattr(user_obj, "is_superuser", False):
             return True
 
-        # 2) si no está autenticado o inactivo
         if not getattr(user_obj, "is_active", False):
             return False
 
@@ -114,6 +111,7 @@ class BusinessPermissionBackend(ModelBackend):
         codename = perm.split(".")[-1]
 
         print("Checking permission:", codename, "for user:", user_obj.username, "on business:", obj)
+        
         # 3) permisos directos de usuario para esa empresa
         if business:
             # 4) permisos por grupo: obtener grupos del usuario
