@@ -4,9 +4,9 @@ from appcore.models import BaseModel
 # Create your models here.
 
 class Business(BaseModel):
-    name = models.CharField(max_length=100)
-    tin = models.CharField(max_length=255)
-    utr = models.CharField(max_length=255)
+    name = models.CharField(max_length=100, unique=True, null=False, blank=False)
+    tin = models.CharField(max_length=255, unique=True, null=False, blank=False)
+    utr = models.CharField(max_length=255, unique=True, null=False, blank=False)
     creation_date = models.DateField(auto_now_add=True, blank=True, null=True)
     update_date = models.DateField(auto_now=True, blank=True, null=True)
 

@@ -131,8 +131,8 @@ class UserListAPIView(ListCreateAPIView):
 
 class UserAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = UserSerializer
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [permissionOverThisBusiness]#[IsAdminUser]
+    #authentication_classes = [JWTAuthentication]
+    #permission_classes = [permissionOverThisBusiness]#[IsAdminUser]
     queryset = User.objects.all()
     
     def get_serializer_context(self):
