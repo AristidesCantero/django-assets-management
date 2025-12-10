@@ -65,8 +65,8 @@ class GroupAPIView(RetrieveUpdateDestroyAPIView):
 class GroupListAPIView(ListCreateAPIView):
     serializer_class = GroupListSerializer
     queryset = serializer_class.Meta.model.objects.all()
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [isAdmin]
+    #authentication_classes = [JWTAuthentication]
+    #permission_classes = [isAdmin]
 
     def get(self, request, *args, **kwargs):
         try:
@@ -96,8 +96,8 @@ class GroupListAPIView(ListCreateAPIView):
 class UserListAPIView(ListCreateAPIView):
     serializer_class = UserListSerializer
     queryset = serializer_class.Meta.model.objects.all()
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [permissionsOverTheModel]
+    #authentication_classes = [JWTAuthentication]
+    #permission_classes = [permissionsOverTheModel]
 
     def get_queryset(self):
         users = User.objects.all()

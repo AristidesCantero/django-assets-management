@@ -25,17 +25,47 @@ class ForbiddenGroupPermissions(models.Model):
 
 #Clas to manage the bussinesses the user can access
 class UserBusinessPermission(BaseModel):
+
+    class Meta:
+        unique_together = ('user_key', 'business_key', 'permission')
+
     user_key = models.ForeignKey(User, on_delete=models.CASCADE)
     business_key = models.ForeignKey(Business, on_delete=models.CASCADE)
     permission = models.ForeignKey(Permission, on_delete=models.CASCADE)
+    active = models.BooleanField(default=True)
+
+
+
+    def __str__(self):
+        return f'User { self.user_key.username} has permission {self.permission.codename} for business {self.business_key.name}'
+    
+    def remove(self):
+        self.active = False
+        self.save()
+
+    def restore(self):
+        self.active = True
+        self.save()
+
+
 
 
 class GroupBusinessPermission(BaseModel):
+
+    class Meta:
+        unique_together = ('group_key', 'business_key', 'permission')
+
     group_key = models.ForeignKey(Group, on_delete=models.CASCADE)
     business_key = models.ForeignKey(Business, on_delete=models.CASCADE)
     permission = models.ForeignKey(Permission, on_delete=models.CASCADE)
+    active = models.BooleanField(default=True)
 
-    
+    def __str__(self):
+        return f'Group { self.group_key.name} has permission {self.permission.codename} for business {self.business_key.name}'
+
+    def set_active(self, action=True):
+        self.active = action
+        self.save()
 
 
 
