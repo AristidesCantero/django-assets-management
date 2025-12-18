@@ -28,87 +28,59 @@ DEFAULT_FORBIDDEN_MODELS = [
 ]
 
 
-def user_business_permission_manage(user: User, business: str, permission: str, action: bool):
 
+
+# Functions to set users permissions and groups
+def set_user_business_permission(user: User, business: str, permission: str, action: bool):
     business = Business.objects.get(id=business)
     permission = Permission.objects.get(id=permission)
-
-    ubp, created = UserBusinessPermission.objects.get_or_create(
-        user_key=user,
-        business_key=business,
-        permission=permission
-    )
+    ubp, created = UserBusinessPermission.objects.get_or_create(user_key=user,business_key=business,permission=permission)
     ubp.set_active(action) 
     
-
+def set_group_business_permission(group: Group, business: Business, user: User, action: bool):
+            gpb, created = GroupBusinessPermission.objects.get_or_create(group_key=group,business_key=business,user_key=user)
+            gpb.set_active(action)
 
 def set_user_businesses_and_permissions(user : User, permissions: dict[str,dict[str,bool]]):
             businesses_keys = permissions.keys()
-
             for business_key in businesses_keys:
                 permission = permissions[business_key]
                 for permission_key, is_marked in permission.items():
-                    user_business_permission_manage(user=user, business=business_key, permission=permission_key, action=is_marked)
-                
-                
-
+                    set_user_business_permission(user=user, business=business_key, permission=permission_key, action=is_marked)
+                            
 def set_user_groups(user: User, groups: dict[str,dict[str,bool]]):
-        
         for business_key, group_instace in groups.items():
             business = Business.objects.get(id=business_key)
-
             for group_key, is_marked in group_instace.items():
                 group = Group.objects.get(id=group_key)
-
-                gpb, created = GroupBusinessPermission.objects.get_or_create(
-                        group_key=group,
-                        business_key=business,
-                        user_key=user
-                    )
-                
-                gpb.set_active(is_marked)
+                set_group_business_permission(group=group, business=business, user=user, action=is_marked)
                
 
 
-def group_permissions_manage(group: Group, permission: Permission, action: bool):
-        group_business_perm, created = GroupBusinessPermission.objects.get_or_create(
-            group_key=group,
-            permission=permission
-        )
-        group_business_perm.set_active(action)
 
-
+#function to set the permissions of a group
 
 def set_group_permissions(group: Group, permissions: dict[str,dict[str,bool]]):
         for group_permission, is_marked in permissions.items():
-                try:
-                    permission = Permission.objects.get(id=group_permission)
-                    group_permissions_manage(group=group, permission=permission, action=is_marked)
-                except Permission.DoesNotExist:
-                    raise ValidationError(f"Permission with id {group_permission} does not exist.")
+                permission = Permission.objects.get(id=group_permission)
+                set_group_permission(group=group, permission=permission, action=is_marked)
 
-          
+
+def set_group_permission(group: Group, permission: Permission, action: bool):
+        group.permissions.remove(permission) if not action else group.permissions.add(permission)
 
 def get_user_businesses_permissions(user: User):
-        user_business_perms = UserBusinessPermission.objects.raw("SELECT id FROM permissions_userbusinesspermission WHERE user_key_id = %s", [user.id])
-        
+        user_business_perms = UserBusinessPermission.objects.raw("SELECT id, business_key_id, permission_id FROM permissions_userbusinesspermission WHERE user_key_id = %s", [user.id])
         businesses_permissions = {}
 
         for ubp in user_business_perms:
-            business_id = str(ubp.business_key.id)
-            permission_id = str(ubp.permission.id)
             is_active = ubp.active
-
-            if business_id not in businesses_permissions:
-                businesses_permissions[business_id] = {}
+            if ubp.business_key_id not in businesses_permissions:
+                businesses_permissions[ubp.business_key_id] = {}
             
-            businesses_permissions[business_id][permission_id] = is_active
+            businesses_permissions[ubp.business_key_id][ubp.permission_id] = is_active
              
-             
-        
-        
         return businesses_permissions
-
 
 def get_user_groups(user: User):
         user_groups = GroupBusinessPermission.objects.raw("SELECT id, business_key_id, group_key_id FROM permissions_groupbusinesspermission WHERE user_key_id = %s", [user.id])
@@ -125,6 +97,8 @@ def get_user_groups(user: User):
 
 
 
+# additional helper functions
+
 def pop_non_user_fields(validated_data: dict):
         groups, permissions  = validated_data.get('groups', {}), validated_data.get('permissions', {})
         validated_data.pop('groups', None)
@@ -132,19 +106,6 @@ def pop_non_user_fields(validated_data: dict):
 
         return validated_data, groups, permissions
     
-    
-
-def handle_user_representation_contenttypes(user: User, contenttypes: list[tuple[str,str,int]], permissions: list[tuple[str,int,int]]):
-    contents = {}
-
-    for contenttype in contenttypes:
-        contents[contenttype[2]] = {'app_label':contenttype[0],'model':contenttype[1],'permissions':[]}
-
-    for permission in Permission.objects.all().values_list('codename','content_type','id'):
-        if permission[1] in contents:
-            contents[permission[1]]['permissions'].append([permission[0],permission[2],permission[2] in [x.id for x in user.user_permissions.all()]])
-
-    return contents
 
 
 # Serializer only to create and search common users, defined for single user (not admin)
@@ -156,16 +117,12 @@ class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
     permissions = serializers.DictField(child=serializers.DictField(child = serializers.BooleanField()), required=False)
     groups = serializers.DictField(child=serializers.DictField(child = serializers.BooleanField()), required=False)
-    businesses = serializers.DictField(child=serializers.BooleanField(), required=False)
     
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
     
     def get_queryset(self, pk):
         user = User.objects.get(pk=pk)
         return user
 
-    
     def update(self, instance, validated_data):
         validated_data, groups, permissions  = pop_non_user_fields(validated_data)
         updated_user = super().update(instance, validated_data)
@@ -182,11 +139,10 @@ class UserSerializer(serializers.ModelSerializer):
         return updated_user
     
     def validate_permissions(self, perms):
-        return validate_all_permissions(perms)
+        return validate_all_users_permissions(perms)
     
     def validate_groups(self, groups):
-        return validate_all_groups(groups)
-
+        return validate_all_users_groups(groups)
 
     def to_representation(self, instance):
         request = self.context.get('request')
@@ -196,8 +152,6 @@ class UserSerializer(serializers.ModelSerializer):
         user = User.objects.get(id=instance.id)
         contenttypes = [x for x in list(ContentType.objects.all().values_list('app_label','model','id')) if x[0] not in DEFAULT_DJANGO_MODELS]
         allPermissions = list(Permission.objects.all().exclude(codename__in=DEFAULT_FORBIDDEN_MODELS).values_list('codename','content_type','id'))
-        userPermissions = [x.id for x in Permission.objects.filter(user=user)]
-
         context = {
             'id': instance.id,
             'username': instance.username,
@@ -208,16 +162,12 @@ class UserSerializer(serializers.ModelSerializer):
 
         if not method in ['GET','PUT','PATCH']:
             return context
- 
-        contents = handle_user_representation_contenttypes(user=user, contenttypes=contenttypes, permissions=allPermissions)
 
         if method in ['GET','PUT','PATCH']:
             context['permissions'] = get_user_businesses_permissions(user)
             context['groups'] = get_user_groups(user)
         return context
     
-        
-
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("A user with that email already exists.")
@@ -225,9 +175,6 @@ class UserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("A user with that username already exists.")
         
         return value
-    
-
-#Serializer to list users with limited info
 class UserListSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -241,18 +188,14 @@ class UserListSerializer(serializers.ModelSerializer):
     permissions = serializers.DictField(child=serializers.DictField(child = serializers.BooleanField()), required=False)
     groups = serializers.DictField(child=serializers.DictField(child = serializers.BooleanField()), required=False)
 
-
     def get_queryset(self):
         queryset = self.Meta.model.objects.all()
         return queryset
     
-
     def create(self, validated_data):
-
         groups, permissions = validated_data.get('groups', {}), validated_data.get('permissions', {})
         validated_data.pop('groups', None)
         validated_data.pop('permissions', None)
-        
         user = super().create(validated_data)
         user.set_password(validated_data['password'])
         user.save()
@@ -264,13 +207,11 @@ class UserListSerializer(serializers.ModelSerializer):
             
         return user
     
-
     def validate_permissions(self, perms):
-        return validate_all_permissions(perms)              
-
+        return validate_all_users_permissions(perms)              
 
     def validate_groups(self, groups):
-        return validate_all_groups(groups)
+        return validate_all_users_groups(groups)
 
     def to_representation(self, instance):
         return {
@@ -284,9 +225,39 @@ class UserListSerializer(serializers.ModelSerializer):
                 }
 
 
-            
-    
 
+
+class GroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Group
+        fields = '__all__'
+        extra_kwargs = {
+            'name': {'validators': [UniqueValidator(queryset=Group.objects.all(), message="A group with that name already exists.")],
+                     'required': True},
+            'permissions': {'required': False},
+        }
+
+    permissions = serializers.DictField(child=serializers.BooleanField() , required=False)
+
+    def get_queryset(self, key):
+        group = Group.objects.get(id=key)
+        return group
+
+    def update(self, instance, validated_data):
+        permissions = validated_data.get('permissions', {})
+        validated_data.pop('permissions', None)
+        updated_group = super().update(instance, validated_data)
+            
+        if permissions:
+            set_group_permissions(group=updated_group, permissions=permissions)
+                    
+        return updated_group
+
+    def validate_permissions(self, perms):
+        return validate_all_group_permissions(perms)
+
+    def to_representation(self, instance):
+        return { 'id': instance.id, 'name': instance.name, 'permissions': [(perm.id, perm.name) for perm in instance.permissions.all()]}
 class GroupListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group
@@ -308,22 +279,14 @@ class GroupListSerializer(serializers.ModelSerializer):
             permissions = validated_data.get('permissions', {})
             validated_data.pop('permissions', None)
             group = super().create(validated_data)
-            
+        
             if permissions:
                 set_group_permissions(group=group, permissions=permissions)
                     
             return group
     
-
-    
     def validate_permissions(self, value):
-        for group_permission, is_marked in value:
-            try:
-                Permission.objects.get(id=group_permission)
-            except Permission.DoesNotExist:
-                raise ValidationError(f"Permission with id {group_permission} does not exist.")  
-        return value
-
+        return validate_all_group_permissions(value)
 
     def to_representation(self, instance):
         return {
@@ -332,69 +295,6 @@ class GroupListSerializer(serializers.ModelSerializer):
             'permissions': ", ".join([str(perm.id) for perm in instance.permissions.all()]),
             
         }
-
-
-
-class GroupSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Group
-        fields = '__all__'
-        extra_kwargs = {
-            'name': {'validators': [UniqueValidator(queryset=Group.objects.all(), message="A group with that name already exists.")],
-                     'required': True},
-            'permissions': {'required': False},
-        }
-
-    
-    group_permissions = serializers.DictField(child=serializers.BooleanField() , required=False)
-
-    def get_queryset(self, key):
-        group = Group.objects.get(id=key)
-        return group
-
-
-    def update(self, instance, validated_data):
-        
-        permissions = validated_data.get('permissions', {})
-        validated_data.pop('permissions', None)
-        updated_group = super().update(instance, validated_data)
-            
-        if permissions:
-            set_group_permissions(group=updated_group, permissions=permissions)
-                    
-        return updated_group
-
-
-
-    def validate_permissions(self, perms):
-        group = self.instance
-
-        if not group:
-            # Si es creación, no hay permisos prohibidos definidos
-            return perms
-
-        forbidden = ForbiddenGroupPermissions.objects.filter(
-            group=group
-        ).values_list("permission_id", flat=True)
-
-        forbidden_found = [p for p in perms if p.id in forbidden]
-
-        if forbidden_found:
-            names = ", ".join([p.codename for p in forbidden_found])
-            raise serializers.ValidationError(
-                f"Este grupo tiene prohibido asignarse los siguientes permisos: {names}"
-            )
-
-        return perms
-
-
-    def to_representation(self, instance):
-        return {
-                    'id': instance.id,
-                    'name': instance.name,
-                    'permissions': [(perm.id, perm.name) for perm in instance.permissions.all()],
-                }
-
 
 
 
@@ -414,9 +314,7 @@ class UserTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 
-
-
-def validate_all_permissions(instance):
+def validate_all_users_permissions(instance):
         permissions_businesses_keys = set(instance.keys())
         businesses_keys = set([str(business.id) for business in Business.objects.raw("SELECT id FROM locations_business")])
         invalid_keys = permissions_businesses_keys - businesses_keys
@@ -435,8 +333,6 @@ def validate_all_permissions(instance):
             if invalid_p_keys:
                 all_invalid_p_keys[key] = invalid_p_keys
         
-        
-
         if all_invalid_p_keys:
             error_messages = []
             for business_id, invalid_perms in all_invalid_p_keys.items():
@@ -445,9 +341,7 @@ def validate_all_permissions(instance):
         
         return instance
 
-
-
-def validate_all_groups(instance):
+def validate_all_users_groups(instance):
 
         non_existing_b = {}
 
@@ -478,6 +372,15 @@ def validate_all_groups(instance):
                 error_messages.append(f"( Business id {business_id} : {', '.join(invalid_groups)} )")
             raise ValidationError('Invalid group IDs found: ' + " ; ".join(error_messages))
                  
+def validate_all_group_permissions(instance):
+        permission_keys = set(instance.keys())
+        all_p_keys = set([str(perm.id) for perm in Permission.objects.raw("SELECT id FROM auth_permission")])
+        invalid_p_keys = permission_keys - all_p_keys
+
+        if invalid_p_keys:
+            raise ValidationError(f"Invalid permission IDs: {', '.join(invalid_p_keys)}")
+        
+        return instance
 
 
             

@@ -45,7 +45,7 @@ class UserBusinessPermission(BaseModel):
 
 
 
-
+# Class to manage the group where the user belongs (the group will give the permissions)
 class GroupBusinessPermission(BaseModel):
 
     class Meta:

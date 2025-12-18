@@ -8,7 +8,6 @@ from permissions.models import ForbiddenGroupPermissions
 
 @receiver(m2m_changed, sender=Group.permissions.through)
 def block_forbidden_permissions(sender, instance, action, pk_set, **kwargs):
-    print("Se modifico un permiso de un grupo")
     """
     Evita que un grupo obtenga permisos que están prohibidos en ForbiddenGroupPermission.
     """
