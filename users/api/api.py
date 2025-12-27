@@ -1,7 +1,6 @@
 from rest_framework.response import Response
 from rest_framework.generics import RetrieveUpdateDestroyAPIView, ListCreateAPIView
 from rest_framework import status
-
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.decorators import permission_classes, authentication_classes
@@ -10,13 +9,14 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from permissions.permissions import *
 from users.models import User
 from django.contrib.auth.models import Permission, Group
+from django.db import connection
 from permissions.backends import BusinessPermissionBackend
 
 
 class GroupAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = GroupSerializer
-    #authentication_classes = [JWTAuthentication]
-    #permission_classes = [isAdmin]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [isAdmin]
     queryset = Group.objects.all()
     http_method_names = ['get', 'patch', 'delete']
     
@@ -97,25 +97,81 @@ class GroupListAPIView(ListCreateAPIView):
 class UserListAPIView(ListCreateAPIView):
     serializer_class = UserListSerializer
     queryset = serializer_class.Meta.model.objects.all()
-    #authentication_classes = [JWTAuthentication]
-    #permission_classes = [permissionsOverTheModel]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [permissionsOverTheModel]
+    http_method_names = ["get", "post"]
 
-    def get_queryset(self):
-        users = User.objects.all()
+
+    def sqlQuery(self, query: str, params: tuple = ()):
+        with connection.cursor() as cursor:
+            cursor.execute(query, params)
+            columns = [col[0] for col in cursor.description]
+            results = [
+                dict(zip(columns, row))
+                for row in cursor.fetchall()
+            ]
+        return results
+
+
+    def usersSqlQuery(self, user: User = None):
+        if user is None:
+            return None
+        user_businesses = self.sqlQuery(query = "SELECT distinct business_key_id from permissions_userbusinesspermission where user_key_id = %s" % user.id)
+
+        user_businesses = [str(x['business_key_id']) for x in user_businesses]
+
+        users_ids = []
+        if user_businesses:
+            users_ids = self.sqlQuery(query = "SELECT DISTINCT user_key_id FROM permissions_userbusinesspermission WHERE business_key_id IN (%s)" % ",".join(user_businesses) )
+
+        users_ids = [str(x['user_key_id']) for x in users_ids] 
+        
+        users = []
+        if users_ids:
+            users = User.objects.filter(id__in = users_ids)
+        
+
+        return users
+
+        
+        
+
+
+    def get_queryset(self, user: User = None):
+        if not user:
+            print("user was null")
+            return User.objects.all()
+        #usuarios pueden obtener los usuarios que: 
+        # - pertenezcan a empresas a las que ellos pertenezcan
+        # - sean ellos mismos
+
+
+
+        return self.usersSqlQuery(user=user)
+
+        if user is not None:
+            return None
+        
+        if user.is_superuser:
+            return User.objects.all()
+
+        avaliable_users = usersSqlQuery()        
+
+        users = User.objects.filter(id__in=[u['id'] for u in avaliable_users])
         return users
     
     
     def get(self, request, *args, **kwargs):
         try:
             user = request.user
-            user_has_permission = user.has_perm('users.view_user', obj = user)
+            queryset = self.get_queryset(user = user)
 
             #self.check_object_permissions(request,user)
             users = User.objects.all()
 
 
             response_data = {}
-            response_data['data'] = self.serializer_class(users, many=True).data
+            response_data['data'] = self.serializer_class(queryset, many=True).data
             return Response(response_data, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'detail': 'User has not been found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -131,9 +187,10 @@ class UserListAPIView(ListCreateAPIView):
 
 class UserAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = UserSerializer
-    #authentication_classes = [JWTAuthentication]
+    authentication_classes = [JWTAuthentication]
     #permission_classes = [permissionOverThisBusiness]#[IsAdminUser]
     queryset = User.objects.all()
+    http_method_names = ["get", "patch"]
     
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -143,8 +200,6 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
     def get(self, request, pk, *args, **kwargs):
         try:
             user = User.objects.get(pk=pk)
-            self.check_object_permissions(request,user)
-
             response_data = {
                 'data': self.serializer_class(user,context={'request': request}).data
             }
@@ -153,7 +208,7 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
             return Response({'detail': 'User has not been found.'}, status=status.HTTP_404_NOT_FOUND)
  
     
-    def put(self, request, pk, *args, **kwargs):
+    def patch(self, request, pk, *args, **kwargs):
         try:
             user = User.objects.get(pk=pk)
             self.check_object_permissions(request,user)
