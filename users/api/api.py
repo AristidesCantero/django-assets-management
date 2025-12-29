@@ -98,10 +98,11 @@ class UserListAPIView(ListCreateAPIView):
     serializer_class = UserListSerializer
     queryset = serializer_class.Meta.model.objects.all()
     authentication_classes = [JWTAuthentication]
-    permission_classes = [permissionsOverTheModel]
+    permission_classes = [permissionsToCheckUsers]
     http_method_names = ["get", "post"]
 
 
+    #funcion para realizar la consulta sql y recibir un diccionario por cada fila en donde las llaves son los nombres de las columnas
     def sqlQuery(self, query: str, params: tuple = ()):
         with connection.cursor() as cursor:
             cursor.execute(query, params)
@@ -113,11 +114,12 @@ class UserListAPIView(ListCreateAPIView):
         return results
 
 
+
     def usersSqlQuery(self, user: User = None):
         if user is None:
             return None
+        
         user_businesses = self.sqlQuery(query = "SELECT distinct business_key_id from permissions_userbusinesspermission where user_key_id = %s" % user.id)
-
         user_businesses = [str(x['business_key_id']) for x in user_businesses]
 
         users_ids = []
@@ -133,40 +135,22 @@ class UserListAPIView(ListCreateAPIView):
 
         return users
 
-        
-        
-
 
     def get_queryset(self, user: User = None):
         if not user:
-            print("user was null")
             return User.objects.all()
-        #usuarios pueden obtener los usuarios que: 
-        # - pertenezcan a empresas a las que ellos pertenezcan
-        # - sean ellos mismos
-
-
-
-        return self.usersSqlQuery(user=user)
-
-        if user is not None:
-            return None
         
-        if user.is_superuser:
-            return User.objects.all()
-
-        avaliable_users = usersSqlQuery()        
-
-        users = User.objects.filter(id__in=[u['id'] for u in avaliable_users])
-        return users
+        return self.usersSqlQuery(user=user)    
     
-    
+
     def get(self, request, *args, **kwargs):
+
+        
+
         try:
             user = request.user
-            queryset = self.get_queryset(user = user)
-
-            #self.check_object_permissions(request,user)
+            self.check_object_permissions(request,user)
+            queryset = self.get_queryset(user=user)
             users = User.objects.all()
 
 
@@ -185,10 +169,13 @@ class UserListAPIView(ListCreateAPIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+
+
 class UserAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = UserSerializer
     authentication_classes = [JWTAuthentication]
-    #permission_classes = [permissionOverThisBusiness]#[IsAdminUser]
+    permission_classes = [permissionOverThisBusiness]
     queryset = User.objects.all()
     http_method_names = ["get", "patch"]
     

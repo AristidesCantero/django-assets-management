@@ -1,6 +1,8 @@
-from rest_framework.permissions import BasePermission,DjangoModelPermissionsOrAnonReadOnly
+from rest_framework.permissions import BasePermission, DjangoModelPermissions
 from rest_framework_simplejwt.views import TokenObtainPairView
+from django.contrib.auth.models import Permission
 from users.models import User
+from permissions.models import UserBusinessPermission
 from django.db.models import Model
 from django.apps import apps
 
@@ -18,12 +20,47 @@ method_to_action = {
     'DELETE': 'delete'
 }
 
+
+def checkIfUserHasPermission(user: User, perm_name = str):
+        permission = Permission.objects.get(codename=perm_name)
+        if not permission: 
+            return False
+        
+        query = "SELECT * FROM permissions_userbusinesspermission WHERE user_key_id = %s AND permission_id = %s AND active=true" % (user.id, permission.id)
+        ubp = [str(ubpm.id) for ubpm in UserBusinessPermission.objects.raw(query)]
+
+        return True if ubp else False
+
+
+
+
+
+
+
+class isAdmin(BasePermission):
+    def has_permission(self, request, view):
+        return True
+
+
+
+
+
+
+
+
+
 # model to make a special check if the business where the element belo
 class permissionOverThisBusiness(BasePermission):
     def has_permission(self, request, view):
+        return True
+        print("goes in has permission")
+
         return super().has_permission(request, view)
         
     def has_object_permission(self, request, view, obj):
+        return True
+        print("goes in object permission")
+        
         method = request.method
         try:
             user = User.objects.get(id=request.user.id)
@@ -44,50 +81,34 @@ class permissionOverThisBusiness(BasePermission):
 
 
 
-class permissionsOverTheModel(DjangoModelPermissionsOrAnonReadOnly):
+
+
+class permissionsToCheckUsers(DjangoModelPermissions):
+
     def has_permission(self, request, view):
-        
-         
-        return super().has_permission(request, view)
+            return True
     
     #determines if the user has the permission for modeel and method (ex: users.view_users)
     def has_object_permission(self, request, view, obj):
 
-        
-
         user = request.user
-        if not user.is_authenticated:
+        if not user.is_authenticated or not user:
             return False
         
         method = request.method
-        permission_required = f'{obj._meta.app_label}.{method_to_action[method]}_{obj._meta.model_name}'
+        model_name =f'{obj._meta.app_label}'
+        permission_required = f'{method_to_action[method]}_{obj._meta.model_name}'
+
         
-        return user.has_perm(permission_required)
+        return checkIfUserHasPermission(user=user, perm_name=permission_required)
+
 
     
 
 
-#access if the user is admin
-class isAdmin(BasePermission):
-    def has_permission(self, request, view):
-        method = request.method
-        try:
-            user = User.objects.get(id=request.user.id)
-            adminPermission = AdminPermission.objects.get(user_key=user.id)
-            if not user.is_authenticated or not adminPermission:
-                return False
-    
-            return True
-        
-        except User.DoesNotExist:
-            print(f"User does not exists")
-            return False
-        except AdminPermission.DoesNotExist:
-            print(f"User {user.name} does not have admin permissions.")
-            return False
-        except:
-            print("An error occurred while checking admin permissions.")
-            return False
+
+
+
 
 
 #check in the 
