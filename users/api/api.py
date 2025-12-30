@@ -113,8 +113,6 @@ class UserListAPIView(ListCreateAPIView):
             ]
         return results
 
-
-
     def usersSqlQuery(self, user: User = None):
         if user is None:
             return None
@@ -135,34 +133,26 @@ class UserListAPIView(ListCreateAPIView):
 
         return users
 
-
     def get_queryset(self, user: User = None):
         if not user:
             return User.objects.all()
-        
         return self.usersSqlQuery(user=user)    
     
 
     def get(self, request, *args, **kwargs):
-
-        
-
         try:
             user = request.user
             self.check_object_permissions(request,user)
+            response_data = {}               
             queryset = self.get_queryset(user=user)
-            users = User.objects.all()
-
-
-            response_data = {}
             response_data['data'] = self.serializer_class(queryset, many=True).data
             return Response(response_data, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'detail': 'User has not been found.'}, status=status.HTTP_404_NOT_FOUND)
-
-        return super().get(request, *args, **kwargs)
     
     def post(self, request, *args, **kwargs):
+        user = request.user
+        self.check_object_permissions(request,user)
         serializer = self.serializer_class(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
@@ -175,7 +165,7 @@ class UserListAPIView(ListCreateAPIView):
 class UserAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = UserSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [permissionOverThisBusiness]
+    permission_classes = [permissionsToCheckUsers]
     queryset = User.objects.all()
     http_method_names = ["get", "patch"]
     
