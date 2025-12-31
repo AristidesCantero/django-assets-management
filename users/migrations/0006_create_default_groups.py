@@ -22,7 +22,7 @@ def create_default_groups(apps, schema_editor):
 
 def remove_default_groups(apps, schema_editor):
     Group = apps.get_model('auth', 'Group')
-    Group.objects.filter(name__in=['ADMIN', 'USER']).delete()
+    Group.objects.filter(name__in=['ADMIN', 'MANAGER']).delete()
 
 class Migration(migrations.Migration):
 
