@@ -30,9 +30,23 @@ def checkIfUserHasPermission(user: User, perm_name = str):
         if not permission: 
             return False
         
-        query = "SELECT * FROM permissions_userbusinesspermission WHERE user_key_id = %s AND permission_id = %s AND active=true" % (user.id, permission.id)
-        ubp = [str(ubpm.id) for ubpm in UserBusinessPermission.objects.raw(query)]
-        return True if ubp else False
+        ubp_query = "SELECT * FROM permissions_userbusinesspermission WHERE user_key_id = %s AND permission_id = %s AND active=true" % (user.id, permission.id)
+        ubp = [str(ubpm.id) for ubpm in UserBusinessPermission.objects.raw(ubp_query)]
+
+        gbp_query = "SELECT * FROM permissions_groupbusinesspermission WHERE user_key_id = %s AND active=true" % user.id
+        gbp = [str(gbpm.group_key_id) for gbpm in GroupBusinessPermission.objects.raw(gbp_query)]
+        
+        gpfp_perm =[perm.id for perm in Permission.objects.raw("SELECT * FROM permissions_forbiddengrouppermissions WHERE group_id IN (%s) AND permission_id = %s" % (",".join(gbp), permission.id))]
+
+        if gpfp_perm:
+             return False
+
+        gbp_perm = [perm.id for perm in Permission.objects.raw("SELECT id FROM auth_group_permissions WHERE group_id IN (%s) AND permission_id = %s" % (",".join(gbp), permission.id))]
+
+        has_gbp = True if gbp_perm else False
+        has_ubp = True if ubp else False
+
+        return has_gbp or has_ubp
 
 
 
@@ -65,7 +79,11 @@ class permissionsToCheckUsers(DjangoModelPermissions):
    
     #determines if the user has the permission for modeel and method (ex: users.view_users)
     def has_object_permission(self, request, view, obj):
-        print('goes here')
+        return True
+
+
+class permissionsToCheckGroups(DjangoModelPermissions):
+    def has_permission(self, request, view):
         user = request.user
         if not user.is_authenticated or not user:
             return False
@@ -73,7 +91,10 @@ class permissionsToCheckUsers(DjangoModelPermissions):
         if user.is_superuser:
             return True
         
-        permission_required = f'{method_to_action[request.method]}_{obj._meta.model_name}'
+        permission_required = f'{method_to_action[request.method]}_{Group._meta.model_name}'
         return checkIfUserHasPermission(user=user, perm_name=permission_required)
 
-
+   
+    #determines if the user has the permission for modeel and method (ex: users.view_users)
+    def has_object_permission(self, request, view, obj):
+        return True

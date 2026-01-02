@@ -13,10 +13,22 @@ from django.db import connection
 from permissions.backends import BusinessPermissionBackend
 
 
+def sqlQuery(query: str, params: tuple = ()):
+        with connection.cursor() as cursor:
+            cursor.execute(query, params)
+            columns = [col[0] for col in cursor.description]
+            results = [
+                dict(zip(columns, row))
+                for row in cursor.fetchall()
+            ]
+        return results
+
+
+
 class GroupAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = GroupSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [isAdmin]
+    permission_classes = [permissionsToCheckGroups]
     queryset = Group.objects.all()
     http_method_names = ['get', 'patch', 'delete']
     
@@ -66,8 +78,13 @@ class GroupAPIView(RetrieveUpdateDestroyAPIView):
 class GroupListAPIView(ListCreateAPIView):
     serializer_class = GroupListSerializer
     queryset = serializer_class.Meta.model.objects.all()
-    #authentication_classes = [JWTAuthentication]
-    #permission_classes = [isAdmin]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [permissionsToCheckGroups]
+
+
+    def groupSqlQuery(self, user: User = None):
+        return Group.objects.all()
+
 
     def get(self, request, *args, **kwargs):
         try:
@@ -78,7 +95,6 @@ class GroupListAPIView(ListCreateAPIView):
         except Group.DoesNotExist:
             return Response({'detail': 'Group has not been found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        return super().get(request, *args, **kwargs)
     
     def post(self, request, *args, **kwargs):
 
@@ -88,7 +104,6 @@ class GroupListAPIView(ListCreateAPIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        return super().post(request, *args, **kwargs)
 
 
 
@@ -98,39 +113,28 @@ class UserListAPIView(ListCreateAPIView):
     serializer_class = UserListSerializer
     queryset = serializer_class.Meta.model.objects.all()
     authentication_classes = [JWTAuthentication]
-    permission_classes = [permissionsToCheckUsers]
+    permission_classes = [permissionsToCheckUsers]  #use function get_permission to customize
     http_method_names = ["get", "post"]
 
 
     #funcion para realizar la consulta sql y recibir un diccionario por cada fila en donde las llaves son los nombres de las columnas
-    def sqlQuery(self, query: str, params: tuple = ()):
-        with connection.cursor() as cursor:
-            cursor.execute(query, params)
-            columns = [col[0] for col in cursor.description]
-            results = [
-                dict(zip(columns, row))
-                for row in cursor.fetchall()
-            ]
-        return results
+    
 
     def usersSqlQuery(self, user: User = None):
         if user is None:
             return None
         
-        user_businesses = self.sqlQuery(query = "SELECT distinct business_key_id from permissions_userbusinesspermission where user_key_id = %s" % user.id)
+        user_businesses = sqlQuery(query = "SELECT distinct business_key_id from permissions_userbusinesspermission where user_key_id = %s" % user.id)
         user_businesses = [str(x['business_key_id']) for x in user_businesses]
-
         users_ids = []
         if user_businesses:
-            users_ids = self.sqlQuery(query = "SELECT DISTINCT user_key_id FROM permissions_userbusinesspermission WHERE business_key_id IN (%s)" % ",".join(user_businesses) )
+            users_ids = sqlQuery(query = "SELECT DISTINCT user_key_id FROM permissions_userbusinesspermission WHERE business_key_id IN (%s)" % ",".join(user_businesses) )
 
         users_ids = [str(x['user_key_id']) for x in users_ids] 
-        
         users = []
         if users_ids:
             users = User.objects.filter(id__in = users_ids)
         
-
         return users
 
     def get_queryset(self, user: User = None):
@@ -169,6 +173,9 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
     http_method_names = ["get", "patch"]
     
+    
+
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['request'] = self.request
