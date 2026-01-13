@@ -34,7 +34,7 @@ urlpatterns = [
     path('assets/', include('assets.urls')),
     path('protocol/', include('protocol.urls')),
     path('locations/', include('locations.api.urls')),
-    path('users/', include('users.api.urls')),
+    path('users/', include('users.urls')),
     path('permisos/', include('permissions.urls')),
 
     path('swagger<format>/', schema_view.without_ui(cache_timeout=0), name='schema-json'),
