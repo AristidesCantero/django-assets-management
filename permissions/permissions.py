@@ -1,9 +1,10 @@
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import BasePermission, DjangoModelPermissions
 from rest_framework_simplejwt.views import TokenObtainPairView
+from django.contrib.auth.models import Permission, Group
 from users.models import User
+from permissions.models import UserBusinessPermission, GroupBusinessPermission
 from django.db.models import Model
 from django.apps import apps
-from permissions.models import AdminPermission, BusinessPermission, request_actions, AllPermissionChoices
 
 #objective permissions
 #-admin permission with limitations defined by another admin or the superadmin
@@ -11,175 +12,89 @@ from permissions.models import AdminPermission, BusinessPermission, request_acti
 #-employee permission with limitations defined by an admin
 #-guests permission with predefined limitations and cannot be changed
 
+method_to_action = {
+    'GET': 'view',
+    'POST': 'add',
+    'PUT': 'change',
+    'PATCH': 'change',
+    'DELETE': 'delete'
+}
 
 
-class permissionOverThisBusiness(BasePermission):
-    def has_permission(self, request, view):
-        method = request.method
-        try:
-            user = User.objects.get(id=request.user.id)
-            businessPermission = BusinessPermission.objects.get(user_key=user.id)
-            if not user.is_authenticated or not businessPermission:
-                return False
-            return True
+def belongsToAGroup(self, user: User, group: Group):
+        query =  "SELECT id FROM permissions_groupbusinesspermission WHERE user_key_id = %s and group_key_id = %S" % (user.id, group.id)
+        ubp = [str(ubpm.id) for ubpm in GroupBusinessPermission.objects.raw(query)]
+
+def checkIfUserHasPermission(user: User, perm_name = str):
+        permission = Permission.objects.get(codename=perm_name)
+        if not permission: 
+            return False
         
-        except User.DoesNotExist:
-            print(f"No user has been identified")
-            return False
-        except BusinessPermission.DoesNotExist:
-            print(f"User {user.name} does not have business permissions.")
-            return False
-        except:
-            print("An error occurred while checking business permissions.")
-            return False
+        ubp_query = "SELECT * FROM permissions_userbusinesspermission WHERE user_key_id = %s AND permission_id = %s AND active=true" % (user.id, permission.id)
+        ubp = [str(ubpm.id) for ubpm in UserBusinessPermission.objects.raw(ubp_query)]
+
+        gbp_query = "SELECT * FROM permissions_groupbusinesspermission WHERE user_key_id = %s AND active=true" % user.id
+        gbp = [str(gbpm.group_key_id) for gbpm in GroupBusinessPermission.objects.raw(gbp_query)]
+        
+        gpfp_perm =[perm.id for perm in Permission.objects.raw("SELECT * FROM permissions_forbiddengrouppermissions WHERE group_id IN (%s) AND permission_id = %s" % (",".join(gbp), permission.id))]
+
+        if gpfp_perm:
+             return False
+
+        gbp_perm = [perm.id for perm in Permission.objects.raw("SELECT id FROM auth_group_permissions WHERE group_id IN (%s) AND permission_id = %s" % (",".join(gbp), permission.id))]
+
+        has_gbp = True if gbp_perm else False
+        has_ubp = True if ubp else False
+
+        return has_gbp or has_ubp
 
 
 
-
-#access if the user is admin
 class isAdmin(BasePermission):
     def has_permission(self, request, view):
-        method = request.method
-        try:
-            user = User.objects.get(id=request.user.id)
-            adminPermission = AdminPermission.objects.get(user_key=user.id)
-            if not user.is_authenticated or not adminPermission:
-                return False
+        user = request.user
+        group = Group.objects.get(name="ADMIN")
+        groups_user_is_admin = belongsToAGroup(user=user,group=group)
+        return True if groups_user_is_admin else False
     
-            return True
-        
-        except User.DoesNotExist:
-            print(f"User does not exists")
-            return False
-        except AdminPermission.DoesNotExist:
-            print(f"User {user.name} does not have admin permissions.")
-            return False
-        except:
-            print("An error occurred while checking admin permissions.")
-            return False
-
-
-#check in the 
-class adminPermissionInModelsManager(isAdmin):
-
-    def has_permission(self, request, view):
-        return super().has_permission(request, view)    
-
-    def has_object_permission(self, request, view, obj):
-        if not request.user.is_authenticated:
-            return False
-
-        try:
-            app = apps.get_models()
-
-
-            object_model = obj.__class__.__name__.lower()  # e.g., 'businesses'
-            
-            if object_model not in ['business','headquarter','asset','component','user'] or not object_model:
-                return False
-            
-            method = request_actions[request.method]
-            permission = method + "_" + object_model
-
-            if permission not in AllPermissionChoices.permission_string():
-                return False
-            
-            return True
-            
-        except:
-            print("Could not determine the object's model name.")
-            return False            
-
-
-
 class isManager(BasePermission):
     def has_permission(self, request, view):
-        method = request.method
-        user = User.objects.get(id=request.user.id)
-        try:
-            businessPermission = BusinessPermission.objects.get(user_key=user.id)
-        except:
-            print(f"User {user.email} does not have business permissions.")
+        user = request.user
+        group = Group.objects.get(name="MANAGER")
+        groups_user_is_manager = belongsToAGroup(user=user,group=group)
+        return True if groups_user_is_manager else False
+
+class permissionsToCheckUsers(DjangoModelPermissions):
+    def has_permission(self, request, view):
+        user = request.user
+        if not user.is_authenticated or not user:
             return False
         
-        if not user.is_authenticated:
-            return False
+        if user.is_superuser:
+            return True
         
+        permission_required = f'{method_to_action[request.method]}_{User._meta.model_name}'
+        return checkIfUserHasPermission(user=user, perm_name=permission_required)
+
+   
+    #determines if the user has the permission for modeel and method (ex: users.view_users)
+    def has_object_permission(self, request, view, obj):
         return True
 
 
-
-class managerPermissionInModelsManager(isManager):
-
+class permissionsToCheckGroups(DjangoModelPermissions):
     def has_permission(self, request, view):
-        super().has_permission(request, view)
+        user = request.user
+        if not user.is_authenticated or not user:
+            return False
+        
+        if user.is_superuser:
+            return True
+        
+        permission_required = f'{method_to_action[request.method]}_{Group._meta.model_name}'
+        return checkIfUserHasPermission(user=user, perm_name=permission_required)
 
-
+   
+    #determines if the user has the permission for modeel and method (ex: users.view_users)
     def has_object_permission(self, request, view, obj):
-        try:
-            object_model = obj.get_plural().lower()  # e.g., 'businesses'
-        except:
-            print("Could not determine the object's model name.")
-            return False
-
-        super().has_permission(request, view)
-        method = request.method
-        businessPermission = BusinessPermission.objects.get(user_key=request.user.id)
-
-        match method:
-            case 'GET':
-                return businessPermission.user_can("GET","businesses") #READ_USERS
-            case 'POST':
-                return businessPermission.user_can("POST","businesses") #CREATE_USERS
-            case 'PUT' | 'PATCH':
-                return businessPermission.user_can("PUT","businesses") #UPDATE_USERS
-            case 'DELETE':
-                return businessPermission.user_can("DELETE","businesses") #DELETE_USERS
-            case _:
-              return False
-
-
-
-class isEmployee(BasePermission):
-    def has_permission(self, request, view):
-        method = request.method
-        user = User.objects.get(id=request.user.id)
-        try:
-            businessPermission = BusinessPermission.objects.get(user_key=user.id)
-        except:
-            print(f"User {user.email} does not have business permissions.")
-            return False
-        
-        if not user.is_authenticated:
-            return False
-        
         return True
-    
-    
-
-class employeePermissionInModelsManager(isEmployee):
-    def has_permission(self, request, view):
-        super().has_permission(request, view)
-    def has_object_permission(self, request, view, obj):
-        try:
-            object_model = obj.get_plural().lower()  # e.g., 'businesses'
-        except:
-            print("Could not determine the object's model name.")
-            return False
-
-        super().has_permission(request, view)
-        method = request.method
-        businessPermission = BusinessPermission.objects.get(user_key=request.user.id)
-
-        match method:
-            case 'GET':
-                return businessPermission.user_can("GET","businesses") #READ_USERS
-            case 'POST':
-                return False #CREATE_USERS
-            case 'PUT' | 'PATCH':
-                return False #UPDATE_USERS
-            case 'DELETE':
-                return False #DELETE_USERS
-            case _:
-              return False
-            

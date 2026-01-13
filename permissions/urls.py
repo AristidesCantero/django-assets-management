@@ -1,8 +1,8 @@
 from django.urls import path
+from permissions.api import *
 
-from permissions.api import AdminPermissionView, AdminPermissionListView
 
 urlpatterns = [
-    path('permissions/',AdminPermissionListView.as_view(), name='usuario_api'),
-    path('permission/<int:pk>/',AdminPermissionView.as_view(), name='usuario_detail_api_view'),
+    path('fpermission/<int:pk>/', ForbiddenGroupPermissionsDetailAPI.as_view(), name='forbidden-group-permissions-detail'),
+    path('fpermissions/', ForbiddenGroupPermissionsListCreateAPI.as_view(), name='forbidden-group-permissions-list-create'),
 ]

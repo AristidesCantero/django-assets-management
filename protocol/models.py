@@ -1,9 +1,10 @@
 from django.db import models
+from appcore.models import BaseModel
 from assets.models import *
 # Create your models here.
 
 
-class maintenanceRoutine(models.Model):
+class maintenanceRoutine(BaseModel):
     asset_key = models.ForeignKey(Asset, on_delete=models.CASCADE)
     description = models.CharField(max_length=255)
 
@@ -15,7 +16,7 @@ class maintenanceRoutine(models.Model):
 
 
 
-class routineStep(models.Model):
+class routineStep(BaseModel):
     routine_key = models.ForeignKey(maintenanceRoutine, on_delete=models.CASCADE)
     description = models.CharField(max_length=255)
 

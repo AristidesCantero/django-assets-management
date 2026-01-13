@@ -51,38 +51,36 @@ def business_detail_api_view(request, pk=None):
     return Response(response_data, status=status.HTTP_404_NOT_FOUND)
 
 
-class BusinessListCreateAPIView(generics.ListCreateAPIView):
-    serializer_class = BusinessCheckSerializer
-
-    def get_queryset(self, pk=None):
-
-        if pk is None:
-            return BusinessCheckSerializer.Meta.model.objects.all()
-        return self.serializer_class.Meta.model.objects.filter(id=pk).first()
-
+class BusinessListAPIView(generics.ListCreateAPIView):
+    serializer_class = BusinessListSerializer
+    queryset = Business.objects.all()
+    #authentication_classes = [TokenAuthentication, SessionAuthentication, BasicAuthentication]
+    #permission_classes = [IsAuthenticated]
 
     def get(self, pk=None):
-        query = self.get_queryset().values('id','name','tin','utr')
+        businesses = self.get_queryset().values('id','name','tin','utr')
         context = {
-            'data':query
+            'data':businesses
         }
         return Response(context, status=status.HTTP_200_OK)
     
     def post(self, request):
-        business_serializer = BusinessCheckSerializer(data = request.data)
-        response_data = {}
+        serializer = self.serializer_class(data = request.data)
 
-        if business_serializer.is_valid():
-            business_serializer.save()
-            response_data['data'] = business_serializer.data
+        response_data = {}
+        if serializer.is_valid():
+            serializer.save()
+            response_data['data'] = serializer.data
             return Response(response_data, status=status.HTTP_201_CREATED)
-        response_data['errors'] = business_serializer.errors
-        response_data['message'] = 'Error al crear el negocio'
+        response_data = {
+            'errors': serializer.errors,
+            'message': 'Error al crear el negocio'
+        }
         return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
 
 
-class BusinessRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = BusinessCheckSerializer
+class BusinessAPIView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = BusinessSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self, pk=None):
@@ -105,28 +103,25 @@ class BusinessRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView
         business = self.get_queryset(pk=pk)
         response_data = {}
         if business:
-            business_serializer = self.serializer_class(business, data = request.data)
-            if business_serializer.is_valid():
-                business_serializer.save()
-                response_data['data'] = business_serializer.data
-                response_data['message'] = 'Negocio actualizado correctamente'
+            serializer = self.serializer_class(business, data = request.data)
+            if serializer.is_valid():
+                serializer.save()
+                response_data = { 'data': serializer.data, 'message': 'Negocio actualizado correctamente' }
                 return Response(response_data, status=status.HTTP_200_OK)
-            
-            response_data['errors'] = business_serializer.errors
-            response_data['message'] = 'Error al actualizar el negocio'
+            response_data = { 'errors': serializer.errors, 'message' : 'Error al actualizar el negocio, información inválida' }
             return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
         
-        response_data['errors'] = 'No se ha encontrado el negocio'
-        response_data['message'] = 'El negocio no existe'
+        response_data = { 'errors': 'No se ha encontrado el negocio', 'message' : 'El negocio no existe' }
         return Response(response_data, status=status.HTTP_404_NOT_FOUND)
     
+
     def delete(self, request, pk=None):
         business = self.get_queryset(pk=pk)
         response_data = {}
 
         if business:
-            business_serializer = BusinessCheckSerializer(business)
-            data = business_serializer.data
+            serializer = self.serializer_class(business)
+            data = serializer.data
             response_data['data'] = data
             response_data['message'] = 'Negocio eliminado correctamente'
             business.delete()

@@ -1,69 +1,101 @@
 from rest_framework import serializers
 from users.models import User
-from permissions.models import AdminPermission, ManagerPermission
+from django.contrib.auth.models import Group, Permission
+from rest_framework import serializers
+from permissions.models import ForbiddenGroupPermissions
 
-class PermissionSerializer(serializers.ModelSerializer):
+
+#the permissions, groups and users serializers are in users/api/serializers.py
+
+
+
+class ForbiddenGroupPermissionsListSerializer(serializers.ModelSerializer):
     class Meta:
-        model = AdminPermission
+        model = ForbiddenGroupPermissions
         fields = '__all__'
+        
+    permission = serializers.IntegerField()
+    group = serializers.IntegerField()
+
 
     def create(self, validated_data):
+        validated_data['permission'] = Permission.objects.get(id=validated_data['permission'])
+        validated_data['group'] = Group.objects.get(id=validated_data['group'])
+        
         return super().create(validated_data)
     
+    def validate_group(self, value):
+        if not Group.objects.filter(id=value).exists():
+            raise serializers.ValidationError("El grupo con el ID proporcionado no existe.")
+        
+        return value
+        
+    
+    def validate_permission(self, value):
+        if not Permission.objects.filter(id=value).exists():
+            raise serializers.ValidationError("El permiso con el ID proporcionado no existe.")
+        
+        return value
+
+    def to_representation(self, instance):
+        return {
+            'id': instance.id,
+            'group': {
+                'id': instance.group.id,
+                'name': instance.group.name
+            },  
+            'permission': {
+                'id': instance.permission.id,
+                'codename': instance.permission.codename,
+                'name': instance.permission.name
+            }
+        }
+
+
+
+class ForbiddenGroupPermissionsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ForbiddenGroupPermissions
+        fields = '__all__'
+
+    group = serializers.IntegerField()
+    permission = serializers.IntegerField()
+
     def update(self, instance, validated_data):
-        return super().update(instance, validated_data)
+        validated_data['permission'] = Permission.objects.get(id=validated_data['permission'])
+        validated_data['group'] = Group.objects.get(id=validated_data['group'])
+
+        return super().update(instance, validated_data) 
     
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        return {
-            'id': instance.id,
-            'user_key': instance.user_key.id,
-            'permission_type': instance.permission_type,
-        }
     
-class PermissionListSerializer(serializers.ModelSerializer):
+    def validate_group(self, value):
+        if not isinstance(value, int):
+            raise serializers.ValidationError("Se debe retornar un ID de grupo válido.")
+        
+        if not Group.objects.filter(id=value).exists():
+            raise serializers.ValidationError("El grupo con el ID proporcionado no existe.")
+        
+        return value
     
-    class Meta:
-        model = AdminPermission
-        fields = '__all__'
-    
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        return {
-            'id': instance.id,
-            'user_key': instance.user_key.id,
-            'permission_type': instance.permission_type,
-        }
+    def validate_permission(self, value):
+        if not isinstance(value, int):
+            raise serializers.ValidationError("Se debe retornar un ID de permiso válido.")
+        
+        if not Permission.objects.filter(id=value).exists():
+            raise serializers.ValidationError("El permiso con el ID proporcionado no existe.")
+        
+        return value
     
 
-class AdminPermissionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AdminPermission
-        fields = '__all__'
-
-    def create(self, validated_data):
-        return super().create(validated_data)
-    
-    def update(self, instance, validated_data):
-        return super().update(instance, validated_data)
-    
     def to_representation(self, instance):
         return {
             'id': instance.id,
-            'user_key': instance.user_key.id,
-            'permission_type': instance.permission_type,
-        }
-
-
-class AdminPermissionListSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AdminPermission
-        fields = '__all__'
-    
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        return {
-            'id': instance.id,
-            'user_key': instance.user_key.id,
-            'permission_type': instance.permission_type,
+            'group': {
+                'id'
+                'name': instance.group.name
+            },  
+            'permission': {
+                'codename': instance.permission.codename,
+                'name': instance.permission.name
+            }
         }

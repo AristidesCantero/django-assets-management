@@ -5,6 +5,7 @@ __pycache__
 **/__pycache__
 *.pyc
 tareas.txt
+estructura_permisos.txt
 .dockerignore
 db_drf
 .gitignore

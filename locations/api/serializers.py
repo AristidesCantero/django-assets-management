@@ -11,51 +11,59 @@ class BusinessSerializer(serializers.ModelSerializer):
         model = Business
         fields = '__all__'
 
-class BusinessCheckSerializer(serializers.Serializer):
-    class Meta:
-        model = Business
-        fields = '__all__'
-
-
-    id = serializers.IntegerField(read_only=True)
-    name = serializers.CharField(max_length=255)
-    tin = serializers.CharField(max_length=255)
-    utr = serializers.CharField(max_length=255)
+    def update(self, instance, validated_data):
+        return super().update(instance, validated_data)
     
 
+    def validate_tin(self, value):
+        return validate_nit(value)
+    
+    def validate_utr(self, value):
+        return validate_utr(value)
 
     def validate_name(self, value):
-        pattern = r'^[a-zA-Z0-9.\- ]+$'
-        if (not re.fullmatch(pattern, value) or len(value) > 255 or len(value) < 3):
-            raise serializers.ValidationError("Invalid name, the name can only have numbers, letters and '-' and the lenght should be more than 3 characters and less than 255")
-        return value
-        
-    def create(self, validated_data):
-        business = Business.objects.create(**validated_data)
-        business.save()
-        return business
+        return validate_name(value)
     
-    def update(self, instance, validated_data):
-        updated_business = instance.update(**validated_data)
-        updated_business.save()
-        return updated_business
+
+    def to_representation(self, instance):
+        return {
+            'id': instance['id'],
+            'name': instance['name'],
+            'tin': instance['tin'].upper(),
+            'utr': instance['utr'].upper()
+        }
+
+
 
 
 class BusinessListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Business
         fields = '__all__'
+        
+
+
+    def get_queryset(self, pk=None):
+        if pk is None:
+            return Business.objects.all()
+        return Business.objects.filter(id=pk).first()
+    
+    def create(self, validated_data):
+        return super().create(validated_data)
+
+    def validate_tin(self, value):
+        return validate_nit(value)
+    
+    def validate_utr(self, value):
+        return validate_utr(value)
+
+    def validate_name(self, value):
+        return validate_name(value)
+        
 
     def to_representation(self, instance):
         # data = super().to_representation(instance) #this def representation is used to get the data is instance is a object
-        return {
-            instance['id']: {
-            'id': instance['id'],
-            'name': instance['name'],
-            'tin': instance['tin'],
-            'utr': instance['utr']
-        }
-        }
+        return { 'id': instance.id, 'name': instance.name, 'tin': instance.tin, 'utr': instance.utr }
 
 
 class UserBusinessMemberSerializer(serializers.Serializer):
@@ -316,3 +324,29 @@ class InternalLocationUpdateSerializer(serializers.Serializer):
         instance.floor = validated_data.get('floor', instance.floor)
         instance.room_number = validated_data.get('room_number', instance.room_number)
         return super().update(instance, validated_data)
+    
+
+
+
+def validate_nit(instance):
+    nit_pattern = r'^[0-9]{9}-[0-9]$'  # Example pattern: 8 digits followed by a hyphen and a digit
+    if not re.match(nit_pattern, instance):
+        raise serializers.ValidationError("Invalid NIT format. Expected format: '123456780-9'")
+    
+    return instance
+
+
+def validate_utr(instance):
+    utr_pattern = r'^[A-Z0-9]{10}$'  # Example pattern: 10 alphanumeric characters
+    if not re.match(utr_pattern, instance):
+        raise serializers.ValidationError("Invalid UTR format. Expected format: 10 alphanumeric characters.")
+    
+    return instance
+
+
+def validate_name(instance):
+    name_pattern = r'^[a-zA-Z0-9.\- ]+$'
+    if (not re.fullmatch(name_pattern, instance) or len(instance) > 255 or len(instance) < 3):
+        raise serializers.ValidationError("Invalid name, the name can only have numbers, letters and '-' and the lenght should be more than 3 characters and less than 255")
+    
+    return instance
