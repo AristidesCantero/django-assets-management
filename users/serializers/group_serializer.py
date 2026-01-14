@@ -3,6 +3,7 @@ from django.contrib.auth.models import Group
 from rest_framework.validators import UniqueValidator
 from users.serializers.data_manage.permission_manager import set_group_permissions
 from users.serializers.validators.validators import validate_all_group_permissions
+from permissions.models import ForbiddenGroupPermissions
 
 
 
@@ -75,11 +76,27 @@ class GroupListSerializer(serializers.ModelSerializer):
         return validate_all_group_permissions(value)
 
     def to_representation(self, instance):
+        return self.json_representation(instance)
+        
+    
+    #use two different representations: visual for human and json for API
+    def visual_representation(self, instance):
+        fbp = ForbiddenGroupPermissions.objects.filter(group=instance)
+        prohibitions = [str(forb_perm.permission).split("|")[-1].replace("Can ", "").strip() for forb_perm in fbp]
+
         return {
             'id': instance.id,
             'name': instance.name,
-            'permissions': ", ".join([str(perm.id) for perm in instance.permissions.all()]),
+            'permissions': ", ".join([ str(perm.id)+":" + str(perm.name)  for perm in instance.permissions.all()]),
+            'prohibitions': prohibitions,
             
         }
 
+    def json_representation(self, instance):
+        return {
+            'id': instance.id,
+            'name': instance.name,
+            'permissions': { str(perm.codename): True for perm in instance.permissions.all()},
+            'prohibitions': { str(forb_perm.permission.codename): True for forb_perm in ForbiddenGroupPermissions.objects.filter(group=instance)},
+        }
 
