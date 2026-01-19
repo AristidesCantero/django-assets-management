@@ -14,12 +14,61 @@ method_to_action = {
 
 class UserQuerySet(models.QuerySet):
 
-    def users_allowed_for_user(self, request):
-        user = request.user
-        business_list = self.has_permission_over_users(user=user, request=request)
-    
+    def user_can_access_user(self, request, accessed_user_id: str) -> list:
+            user = request.user
+            accessed_user = self.filter(pk=accessed_user_id)
+            if not accessed_user:
+                return [user]
+            required_permission = f'{method_to_action[request.method]}_{user._meta.model_name}'
+            Permission = apps.get_model('auth', 'Permission')
+            permission = Permission.objects.get(codename=required_permission)
+            if not permission:
+                return []
 
-    def has_permission_over_users(self, request):
+            business_which_user_belongs_to = self.businesses_which_access_user_belongs(user_id=accessed_user_id)
+            if not business_which_user_belongs_to:
+                return []
+            
+            businesses_where_user_has_permission = self.businesses_user_belongs_allowed_to_user(user_id=user.id, businesses=business_which_user_belongs_to, permission_id=permission.id)
+            if not businesses_where_user_has_permission:
+                return []
+            
+            return [user,self.get(pk=accessed_user_id)]
+            
+
+        # Implement logic to determine if 'user' can access 'user_to_access'
+            pass
+
+    def businesses_which_access_user_belongs(self, user_id: str) -> list:
+        query = "SELECT DISTINCT id, business_key_id FROM permissions_userbusinesspermission WHERE user_key_id = %s AND active=true" % user_id
+        return [str(ubpm.business_key_id) for ubpm in self.raw(query)]
+
+    def businesses_user_belongs_allowed_to_user(self, user_id: str, businesses: list, permission_id: str) -> list:
+        query = "SELECT DISTINCT id, business_key_id FROM permissions_userbusinesspermission WHERE user_key_id = %s AND active=true AND permission_id = %s AND business_key_id IN (%s)" % (user_id, permission_id, ",".join(businesses))
+        return [str(ubpm.business_key_id) for ubpm in self.raw(query)]
+
+
+
+
+    def users_allowed_to_user(self, request) -> list:
+        user = request.user
+        business_list = self.businesses_allowed_to_user(request=request)
+
+
+        if not business_list:
+            return []
+        
+        return self.users_belonging_to_businesses(business_list=business_list)
+
+    def users_belonging_to_businesses(self, business_list: list) -> list:
+        if not business_list:
+            return []
+        
+        query =  "SELECT * FROM users_user WHERE id IN (SELECT DISTINCT user_key_id FROM permissions_userbusinesspermission WHERE business_key_id IN (%s) AND active=true)" % ",".join(business_list)
+        users = list(self.raw(query))
+        return users
+
+    def businesses_allowed_to_user(self, request):
         user = request.user
         
         if user.is_superuser:
@@ -30,19 +79,15 @@ class UserQuerySet(models.QuerySet):
         if not user.is_authenticated or not user:
             return []
         
-        permission_required = f'{method_to_action[request.method]}_{self._meta.model_name}'
-        allowed_businesses = self.businesses_with_user_permission(user=user, perm_name=permission_required)
+        allowed_businesses = self.businesses_in_which_user_has_permission(user=user, request=request)
         return allowed_businesses
     
-
-
-
-    def businesses_with_user_permission(self, user, request) -> list:
+    def businesses_in_which_user_has_permission(self, user, request) -> list:
             
             permission_required = f'{method_to_action[request.method]}_{user._meta.model_name}'
             Permission = apps.get_model('auth', 'Permission')
             permission = Permission.objects.get(codename=permission_required)
-            if not permission or not user.is_authenticated: 
+            if not permission: 
                 return []
             
             business_user_has_perm = self.get_business_where_user_has_permission(user=user, permission=permission)
@@ -65,7 +110,6 @@ class UserQuerySet(models.QuerySet):
             allowed_businesses = set(allowed_businesses + business_user_has_perm)
 
             return allowed_businesses
-    
 
     def get_business_where_user_has_permission(self, user, permission) -> list:
         UserBusinessPermission = apps.get_model('permissions', 'UserBusinessPermission')
@@ -73,13 +117,11 @@ class UserQuerySet(models.QuerySet):
         business_with_user_perm = [str(ubpm.business_key_id) for ubpm in UserBusinessPermission.objects.raw(ubp_query)]
         return business_with_user_perm
 
-
     def get_business_groups_user_is(self, user) -> set:
         GroupBusinessPermission = apps.get_model('permissions', 'GroupBusinessPermission')
         gbp_query = "SELECT id, group_key_id, business_key_id FROM permissions_groupbusinesspermission WHERE user_key_id = %s AND active=true" % user.id
         businesses_and_keys = set([(str(gbpm.business_key_id) ,str(gbpm.group_key_id)) for gbpm in GroupBusinessPermission.objects.raw(gbp_query)])
         return businesses_and_keys
-
 
     def groups_forbidden_to_make_action_of_permission(self, permission, bg_user_belongs: dict) -> list:
         Permission = apps.get_model('auth', 'Permission')

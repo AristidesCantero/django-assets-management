@@ -6,7 +6,7 @@ from users.serializers.user_serializer import UserSerializer, UserListSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView,TokenRefreshView
 from permissions.permissions import *
 from users.models import User
-from django.db import connection
+from django.db import Error, connection
 
 
 def sqlQuery(query: str, params: tuple = ()):
@@ -35,27 +35,12 @@ class UserListAPIView(ListCreateAPIView):
     #funcion para realizar la consulta sql y recibir un diccionario por cada fila en donde las llaves son los nombres de las columnas
     
 
-    def usersInUserBusinessSqlQuery(self, user: User = None):
-        if user is None:
-            return None
-        
-        user_businesses = sqlQuery(query = "SELECT distinct business_key_id from permissions_userbusinesspermission where user_key_id = %s" % user.id)
-        user_businesses = [str(x['business_key_id']) for x in user_businesses]
-        users_ids = []
-        if user_businesses:
-            users_ids = sqlQuery(query = "SELECT DISTINCT user_key_id FROM permissions_userbusinesspermission WHERE business_key_id IN (%s)" % ",".join(user_businesses) )
-
-        users_ids = [str(x['user_key_id']) for x in users_ids] 
-        users = []
-        if users_ids:
-            users = User.objects.filter(id__in = users_ids)
-        
-        return users
 
     def get_queryset(self, user: User = None):
+
         if user.is_superuser:
-            return User.objects.all()[:10]
-        return self.usersInUserBusinessSqlQuery(user=user)    
+            return User.objects.all()
+        return User.objects.users_allowed_to_user(request=self.request)   
     
 
     def get(self, request, *args, **kwargs):
@@ -89,7 +74,13 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
     
     
     def get_queryset(self, pk):
-        return User.objects.get(pk=pk)
+        user = User.objects.user_can_access_user(request=self.request, accessed_user_id=pk)
+        if not user:
+            return []
+        if len(user) != 2:
+            raise User.DoesNotExist
+        return user[1]
+
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
