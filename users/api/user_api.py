@@ -74,13 +74,10 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
     
     
     def get_queryset(self, pk):
-        user = User.objects.user_can_access_user(request=self.request, accessed_user_id=pk)
-        if not user:
-            return []
-        if len(user) != 2:
+        user_data = User.objects.user_can_access_user(request=self.request, accessed_user_id=pk)
+        if not user_data["exists"]:
             raise User.DoesNotExist
-        return user[1]
-
+        return user_data["user"]
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -97,7 +94,6 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
         except User.DoesNotExist:
             return Response({'detail': 'User has not been found.'}, status=status.HTTP_404_NOT_FOUND)
  
-    
     def patch(self, request, pk, *args, **kwargs):
         try:
             user = self.get_queryset(pk=pk)
@@ -110,7 +106,6 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-
     def delete(self, request, *args, **kwargs):
         try:
             user = self.get_queryset(pk=kwargs.get('pk'))

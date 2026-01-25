@@ -32,14 +32,34 @@ def checkIfUserHasPermission(request=None):
         users_allowed = User.objects.users_allowed_to_user(request=request)
         return True if users_allowed else False
 
-def check_if_user_can_check_user(request, accessed_user_id: str) -> bool:
+def checkIfUserHasPermissionOverModel(request=None, view=None):
+    if request is None or view is None:
+        return False
+    
+    user = request.user
+    if hasattr(view, 'get_queryset'):
+        model_class = view.get_queryset().model
+    elif hasattr(view, 'serializer_class'):
+        model_class = view.serializer_class.Meta.model
+    else:
+        model_class = None
+
+    if not model_class:
+        return False
+    
+    permission_required = f'{method_to_action[request.method]}_{model_class._meta.model_name}'
+    
+    users_allowed = User.objects.user_can_access_model(request=request, accessed_model=model_class)
+    return True if users_allowed else False
+
+
+def user_can_check_user(request, accessed_user_id: str) -> list[bool,bool]:
     UserQuerySet = User.objects
     user_value = UserQuerySet.user_can_access_user(request=request, accessed_user_id=accessed_user_id)
-    
-    if not user_value:
-         return []
-   
-    return user_value
+    searched_user_exists = user_value.get("exists", False)
+    user_value = user_value.get("user", None)
+    returned_list = [searched_user_exists, user_value]
+    return returned_list
 
 def path_has_primary_key(path: str) -> bool:
     segments = path.strip('/').split('/')
@@ -71,9 +91,13 @@ class permissionsToCheckUsers(DjangoModelPermissions):
         if user.is_superuser:
             return True
         
-        if path_has_primary_key(request.path):
-            return check_if_user_can_check_user(request=request, accessed_user_id=path_has_primary_key(request.path))
-        
+        path_has_primary = path_has_primary_key(request.path)
+
+        if path_has_primary:
+            exists, user_value = user_can_check_user(request=request, accessed_user_id=path_has_primary) 
+            if not user_value:
+                return False
+
         return checkIfUserHasPermission(request=request)
 
 
@@ -101,6 +125,4 @@ class permissionToCheckModel(DjangoModelPermissions):
         if user.is_superuser:
             return True
         
-        model_name = view.queryset.model._meta.model_name
-        permission_required = f'{method_to_action[request.method]}_{model_name}'
-        return checkIfUserHasPermission(user=user, perm_name=permission_required)
+        return checkIfUserHasPermissionOverModel(request=request, view=view)

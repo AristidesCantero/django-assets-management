@@ -14,27 +14,61 @@ method_to_action = {
 
 class UserQuerySet(models.QuerySet):
 
-    def user_can_access_user(self, request, accessed_user_id: str) -> list:
+    def user_can_access_model(self, request, accessed_model) -> list:
+        user = request.user
+        if not user.is_authenticated or not user:
+            return []
+        
+        required_permission = f'{method_to_action[request.method]}_{accessed_model._meta.model_name}'
+        Permission = apps.get_model('auth', 'Permission')
+        permission = Permission.objects.get(codename=required_permission)
+        if not permission:
+            return []
+
+        business_which_user_belongs_to = self.businesses_which_access_user_belongs(user_id=user.id)
+        if not business_which_user_belongs_to:
+            return []
+        
+        businesses_where_user_has_permission = self.businesses_user_belongs_allowed_to_user(user_id=user.id, businesses=business_which_user_belongs_to, permission_id=permission.id)
+        if not businesses_where_user_has_permission:
+            return []
+        
+        return [user]
+
+
+
+    def user_can_access_user(self, request, accessed_user_id: str) -> dict:
             user = request.user
-            accessed_user = self.filter(pk=accessed_user_id)
+            accessed_user = self.get(pk=accessed_user_id)
+            #user not found
             if not accessed_user:
-                return [user]
+                return {"user": None, "exists": False}
+            
             required_permission = f'{method_to_action[request.method]}_{user._meta.model_name}'
             Permission = apps.get_model('auth', 'Permission')
             permission = Permission.objects.get(codename=required_permission)
-            if not permission:
-                return []
 
-            business_which_user_belongs_to = self.businesses_which_access_user_belongs(user_id=accessed_user_id)
-            if not business_which_user_belongs_to:
-                return []
+            if user.is_superuser:
+                return {"user": accessed_user, "exists": True}
+
+            #permission does not exists
+            if not permission:
+                return {"user": None, "exists": True}
+
+            business_which_user_belongs = self.businesses_which_access_user_belongs(user_id=accessed_user_id)
+
+            #no businesses where the accessed user belongs
+            if not business_which_user_belongs:
+                return {"user": None, "exists": True}
             
-            businesses_where_user_has_permission = self.businesses_user_belongs_allowed_to_user(user_id=user.id, businesses=business_which_user_belongs_to, permission_id=permission.id)
+            businesses_where_user_has_permission = self.businesses_user_belongs_allowed_to_user(user_id=user.id, businesses=business_which_user_belongs, permission_id=permission.id)
+
+            #no businesses where the user has permission over the accessed user
             if not businesses_where_user_has_permission:
-                return []
+                return {"user": None, "exists": True}
             
-            return [user,self.get(pk=accessed_user_id)]
-            
+
+            return {"user": accessed_user, "exists": True}
 
         # Implement logic to determine if 'user' can access 'user_to_access'
             pass

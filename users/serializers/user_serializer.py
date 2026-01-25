@@ -86,8 +86,12 @@ class UserSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         method = request.method 
 
+        if not instance:
+            return {}
+        
         # Representation of the use and all the permission this haves in the system
         user = User.objects.get(id=instance.id)
+    
         context = {
             'id': instance.id,
             'username': instance.username,
