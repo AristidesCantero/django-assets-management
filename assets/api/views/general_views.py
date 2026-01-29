@@ -5,7 +5,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import authenticate, login, logout
 
 from django.contrib import messages
-from assets.models import *
+from assets.domain.models import *
 from assets.api.serializers.general_serializers import *
 from rest_framework import generics
 from rest_framework.decorators import authentication_classes, permission_classes

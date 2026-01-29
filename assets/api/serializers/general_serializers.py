@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from assets.models import Asset, SystemSegregation
+from assets.domain.models import Asset, SystemSegregation
 
 class AssetSerializer(serializers.ModelSerializer):
     class Meta:
