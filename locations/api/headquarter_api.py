@@ -70,7 +70,7 @@ class HeadquarterListAPIView(RetrieveUpdateDestroyAPIView):
         
 
     def post(self, request):
-        serializer = self.serializer_class(data=request.data)
+        serializer = self.serializer_class(data=request.data, context={'request':request})
         response_data = {}
         if serializer.is_valid():
             serializer.save()

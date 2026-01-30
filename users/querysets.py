@@ -1,5 +1,6 @@
 from django.db import models
 from django.apps import apps
+from locations.models import Business
 
 
 method_to_action = {
@@ -10,15 +11,45 @@ method_to_action = {
     'DELETE': 'delete'
 }
 
+class BusinessQuerySet(models.QuerySet):
+
+    #conseguir listado de empresas en las que el usuario cuenta con permisos
+    def user_allowed_businesses(user, request):
+        required_permission = f"{method_to_action[request.method]}_{Business._meta.model_name}"
+        Permission = apps.get_model('auth', 'Permission')
+        permission = Permission.objects.get(codename=required_permission)
+        businesses_allowed = UserQuerySet().get_business_where_user_has_permission(user=user, permission=permission)
+        return businesses_allowed
+    
+    
+    # 
+
+
+    #check the businesses which the user has the permission for the model and based in the method
+
 
 
 class UserQuerySet(models.QuerySet):
+
+    
+
+    def user_has_perm_over_business(self, user, business, perm):
+        if not user or not business or not perm:
+            return False
+
+        UserBusinessPermission = apps.get_model('permissions', 'UserBusinessPermission')
+        perm_exists = UserBusinessPermission.objects.filter(user_key_id = user.id, permission_id = perm.id, business_key_id = business.id).exists()
+        return perm_exists
+
 
     def user_can_access_model(self, request, accessed_model) -> list:
         user = request.user
         if not user.is_authenticated or not user:
             return []
         
+        if user.is_superuser:
+            return [user]
+
         required_permission = f'{method_to_action[request.method]}_{accessed_model._meta.model_name}'
         Permission = apps.get_model('auth', 'Permission')
         permission = Permission.objects.get(codename=required_permission)
@@ -34,8 +65,6 @@ class UserQuerySet(models.QuerySet):
             return []
         
         return [user]
-
-
 
     def user_can_access_user(self, request, accessed_user_id: str) -> dict:
             user = request.user
@@ -84,10 +113,9 @@ class UserQuerySet(models.QuerySet):
 
 
 
-    def users_allowed_to_user(self, request) -> list:
+    def users_allowed_to_user(self, request, model=None) -> list:
         user = request.user
-        business_list = self.businesses_allowed_to_user(request=request)
-
+        business_list = self.businesses_allowed_to_user(request=request, model=model)
 
         if not business_list:
             return []
@@ -102,7 +130,7 @@ class UserQuerySet(models.QuerySet):
         users = list(self.raw(query))
         return users
 
-    def businesses_allowed_to_user(self, request):
+    def businesses_allowed_to_user(self, request, model=None) -> list:
         user = request.user
         
         if user.is_superuser:
@@ -113,12 +141,13 @@ class UserQuerySet(models.QuerySet):
         if not user.is_authenticated or not user:
             return []
         
-        allowed_businesses = self.businesses_in_which_user_has_permission(user=user, request=request)
+        allowed_businesses = self.businesses_in_which_user_has_permission(user=user, request=request, model=model)
         return allowed_businesses
     
-    def businesses_in_which_user_has_permission(self, user, request) -> list:
-            
-            permission_required = f'{method_to_action[request.method]}_{user._meta.model_name}'
+    def businesses_in_which_user_has_permission(self, user, request, model=None) -> list:
+            model = user._meta.model_name if not model else model._meta.model_name
+
+            permission_required = f'{method_to_action[request.method]}_{model}'
             Permission = apps.get_model('auth', 'Permission')
             permission = Permission.objects.get(codename=permission_required)
             if not permission: 
@@ -143,7 +172,7 @@ class UserQuerySet(models.QuerySet):
             # combine both lists without repeat / are the ids of the allowed businesses
             allowed_businesses = set(allowed_businesses + business_user_has_perm)
 
-            return allowed_businesses
+            return list(allowed_businesses)
 
     def get_business_where_user_has_permission(self, user, permission) -> list:
         UserBusinessPermission = apps.get_model('permissions', 'UserBusinessPermission')

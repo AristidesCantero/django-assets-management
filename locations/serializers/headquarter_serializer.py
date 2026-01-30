@@ -1,14 +1,26 @@
 from rest_framework import serializers
 from locations.models import Headquarters, Business
+from django.core.exceptions import ValidationError
+from users.models import User
 
 
 
+def validate_business_key_ext(instance, context, model=None):
+        user = context["request"].user
+        request = context["request"]
 
-def validate_business_key(value):
-    business = Business.objects.get(id=value)
-    if not business:
-        raise serializers.ValidationError("Business does not exist.")
-    return business
+        if not Business.objects.filter(pk=instance).exists():
+            raise ValidationError("Business does not exist")
+
+        allowed_business = User.objects.businesses_allowed_to_user(request=request,model=model)
+
+        if not str(instance) in allowed_business:
+            raise ValidationError("User does not have permission over business: "+str(instance))
+        
+        print(instance)
+            
+        business = Business.objects.get(id=instance)
+        return  business
     
 
 def validate_phone(value):
@@ -30,7 +42,11 @@ class HeadquartersSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=100, required=True)
     address = serializers.CharField(max_length=255, required=True)
     phone = serializers.CharField(max_length=15, required=True)
-    business_key = serializers.IntegerField(required=True, validators=[validate_business_key])
+    business_key = serializers.IntegerField(required=True)
+
+    def validate_business_key(self, instance):
+        return validate_business_key_ext(instance=instance, context=self.context, model = Headquarters).id
+
 
 
     def get(self, key):
@@ -54,13 +70,14 @@ class HeadquartersListSerializer(serializers.ModelSerializer):
     name = serializers.CharField(max_length=100, required=True)
     address = serializers.CharField(max_length=255, required=True)
     phone = serializers.CharField(max_length=15, required=True)
-    business_key = serializers.IntegerField(required=True, validators=[validate_business_key])
+    business_key = serializers.IntegerField(required=True)
 
+    def validate_business_key(self, instance):
+        return validate_business_key_ext(instance=instance, context=self.context, model = Headquarters).id
 
     def create(self, validated_data):
         validated_data['business_key'] = Business.objects.get(id=validated_data['business_key'])
-        headquarter = super().create(validated_data=validated_data)
-        return headquarter
+        return super().create(validated_data=validated_data)
 
     def to_representation(self, instance):
         # data = super().to_representation(instance) #this def representation is used to get the data is instance is a object
@@ -76,6 +93,15 @@ class HeadquartersListSerializer(serializers.ModelSerializer):
             'business_name': business_key.name if business_key else 'N/A'
             }
         }
+
+
+    
+
+
+
+
+
+        
     
 
 
