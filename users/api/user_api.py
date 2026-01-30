@@ -26,7 +26,6 @@ def sqlQuery(query: str, params: tuple = ()):
 #User management by business
 class UserListAPIView(ListCreateAPIView):
     serializer_class = UserListSerializer
-    queryset = serializer_class.Meta.model.objects.all()
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissionsToCheckUsers]  #use function get_permission to customize
     http_method_names = ["get", "post"]

@@ -16,8 +16,6 @@ def validate_business_key_ext(instance, context, model=None):
 
         if not str(instance) in allowed_business:
             raise ValidationError("User does not have permission over business: "+str(instance))
-        
-        print(instance)
             
         business = Business.objects.get(id=instance)
         return  business

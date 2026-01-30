@@ -37,12 +37,12 @@ def checkIfUserHasPermissionOverModel(request=None, view=None):
         return False
     
     user = request.user
-    if hasattr(view, 'get_queryset'):
-        model_class = view.get_queryset().model
-    elif hasattr(view, 'serializer_class'):
-        model_class = view.serializer_class.Meta.model
-    else:
-        model_class = None
+    model_class = view.serializer_class.Meta.model if hasattr(view, 'serializer_class') else None
+
+    #if hasattr(view, 'serializer_class'):
+    #    model_class = view.serializer_class.Meta.model
+    #else:
+    #    model_class = None
 
     if not model_class:
         return False
@@ -119,6 +119,7 @@ class permissionsToCheckGroups(DjangoModelPermissions):
 class permissionToCheckModel(DjangoModelPermissions):
     def has_permission(self, request, view):
         user = request.user
+        
         if not user.is_authenticated or not user:
             return False
         
