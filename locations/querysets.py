@@ -104,7 +104,9 @@ class InternalLocationQuerySet(models.QuerySet):
 
 
      def internal_location_if_user_has_perm(self, request, pk):
-               internal_location = self.get(pk=pk)
+               #internal_location = self.get(pk=pk) todavia no esta asociada al modelo
+               InternalLocation = apps.get_model("locations","InternalLocation")
+               internal_location = InternalLocation.objects.filter(pk=pk).first()
                user = request.user
 
                if not internal_location:
@@ -118,7 +120,7 @@ class InternalLocationQuerySet(models.QuerySet):
                     return {"hq":internal_location, "exists":True}
                
                business = internal_location.get_business()
-               permission_required = f"{method_to_action[request.method]}_{self.model.model_name}"
+               permission_required = f"{method_to_action[request.method]}_{InternalLocation._meta.model_name}"
                Permission = apps.get_model('auth', 'Permission')
                permission = Permission.objects.get(codename=permission_required)
                user_has_perm = UserQuerySet().user_has_perm_over_business(user=user,business=business,perm=permission)

@@ -27,7 +27,7 @@ class InternalLocationAPIView(ListCreateAPIView):
         try:
             internal_location = self.get_queryset(request=request, pk=pk)
             response_data = {
-                "data": self.serializer_class(internal_location)
+                "data": self.serializer_class(internal_location).data
             }
             return Response(response_data, status=status.HTTP_200_OK)
         except InternalLocation.DoesNotExist:
@@ -36,20 +36,28 @@ class InternalLocationAPIView(ListCreateAPIView):
         
     
 
-    def post(self, request):
-        serializer = self.serializer_class(data = request.data, context={"request":request})
-
-        response_data = {}
-        if serializer.is_valid():
-            serializer.save()
-            response_data['data'] = serializer.data
-            return Response(response_data, status=status.HTTP_201_CREATED)
-        response_data = {
-            'errors': serializer.errors,
-            'message': 'Error al crear la ubicación interna'
-        }
-        return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
+    def patch(self, request, pk=None):
+        try:
+            internal_location = self.get_queryset(request=request, pk=pk)
+            serializer = self.serializer_class(internal_location, data=request.data, partial=True, context={"request":request})
+            if serializer.is_valid():
+                serializer.save()
+                return Response({'data': serializer.data}, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except InternalLocation.DoesNotExist:
+            return Response({'detail': 'Internal Location has not been found.'}, status=status.HTTP_404_NOT_FOUND)
     
+    
+    def delete(self, request, pk=None):
+        try:
+            internal_location = self.get_queryset(request=request, pk=pk)
+            content_deleted = internal_location.delete()
+            response_data = {
+                'deleted': content_deleted
+            }
+            return Response(response_data, status=status.HTTP_204_NO_CONTENT)
+        except InternalLocation.DoesNotExist:
+            return Response({'detail': 'Internal Location has not been found.'}, status=status.HTTP_404_NOT_FOUND)
 
 
 class InternalLocationListAPIView(RetrieveUpdateDestroyAPIView):

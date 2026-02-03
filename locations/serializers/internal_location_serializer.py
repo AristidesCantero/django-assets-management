@@ -7,37 +7,53 @@ from users.models import User
 def validate_headquarters_key_ext(instance, context, model=None):
         if not instance:
             raise serializers.ValidationError("Headquarters key is required.")
-        if not Headquarters.objects.filter(id=instance.id).exists():
+        if not Headquarters.objects.filter(id=instance).exists():
             raise serializers.ValidationError("Headquarters does not exist.")
         
         user = context["request"].user
         request = context["request"]
 
         try:
-            headquarter = Headquarters.objects.get(id=instance.id)
+            headquarter = Headquarters.objects.get(id=instance)
         except Headquarters.DoesNotExist:
              return []
              
         business = headquarter.get_business()
 
+
         allowed_business = User.objects.businesses_allowed_to_user(request=request,model=model)
 
-        if not instance.id in allowed_business:
+
+
+        if not str(business.id) in allowed_business:
             raise ValidationError(f"User does not have permission over headquarters {headquarter.id} of business: {business.id}")
             
-        business = Business.objects.get(id=instance.id)
+        business = Business.objects.get(id=instance)
         return  business
 
 
 class InternalLocationSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     name = serializers.CharField(max_length=100)
-    headquarters_key = serializers.IntegerField(min_value=0)
-    floor = serializers.CharField(max_length=10)
-    room_number = serializers.CharField(max_length=10)
+    headquarters_key = serializers.IntegerField(min_value=0,validators=[])
+    floor = serializers.CharField(max_length=10,validators=[])
+    room_number = serializers.CharField(max_length=10,validators=[])
     class Meta:
             model = InternalLocation
             fields = '__all__'
+
+
+    def update(self, instance, validated_data):
+        print(validated_data['headquarters_key'])
+        instance.name = validated_data.get('name',instance.name)
+        instance.floor = validated_data.get('floor',instance.floor)
+        instance.room_number = validated_data.get('room_number',instance.room_number)
+        headquarters_key =  validated_data.get('headquarters_key',instance.headquarters_key)
+        instance.headquarters_key = Headquarters.objects.get(pk=headquarters_key)
+        updated_internal_location = instance
+        instance.save()
+        return updated_internal_location
+    
 
     def validate_name(self, value):
         if not value:
@@ -68,9 +84,11 @@ class InternalLocationSerializer(serializers.Serializer):
     def to_representation(self, instance):
         return {
            instance.id : {
-                    instance.id,
-                    instance.name,
-                    instance.floor
+                    "name":instance.name,
+                    "floor":instance.floor,
+                    'room_number': instance.room_number,
+                    'headquarters': instance.headquarters_key.name if instance.headquarters_key else 'N/A',
+
             }
         }
             
