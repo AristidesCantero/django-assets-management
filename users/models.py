@@ -1,13 +1,12 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager, PermissionsMixin
 from simple_history.models import HistoricalRecords
-from locations.models import Business
-from django.db.models import Model
+from users.querysets import UserQuerySet
 
 
 # Create your models here.
 
-class UserManager(BaseUserManager):
+class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
     def _create_user(self, username, email, name, last_name, password, is_staff, is_superuser, **extra_fields):
         if not email:
             raise ValueError('Users must have email address')
@@ -25,6 +24,9 @@ class UserManager(BaseUserManager):
         user.set_password(password)
         user.save(using=self.db)
         return user
+    
+    def user_has_permission_users(self, user, request):
+        return UserQuerySet.businesses_with_user_permission(user, request)
 
     def create_user(self, username, email, name, last_name, password=None, **extra_fields):
         return self._create_user(username, email, name, last_name, password, False, False, **extra_fields)

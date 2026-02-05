@@ -73,14 +73,25 @@ class UserSerializer(serializers.ModelSerializer):
     def validate_groups(self, groups):
         return validate_all_users_groups(groups)
 
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with that email already exists.")
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("A user with that username already exists.")
+        
+        return value
+
+
     def to_representation(self, instance):
         request = self.context.get('request')
         method = request.method 
 
+        if not instance:
+            return {}
+        
         # Representation of the use and all the permission this haves in the system
         user = User.objects.get(id=instance.id)
-        contenttypes = [x for x in list(ContentType.objects.all().values_list('app_label','model','id')) if x[0] not in DEFAULT_DJANGO_MODELS]
-        allPermissions = list(Permission.objects.all().exclude(codename__in=DEFAULT_FORBIDDEN_MODELS).values_list('codename','content_type','id'))
+    
         context = {
             'id': instance.id,
             'username': instance.username,
@@ -89,22 +100,16 @@ class UserSerializer(serializers.ModelSerializer):
             'last_name': instance.last_name,
         }
 
-        if not method in ['GET','PUT','PATCH']:
-            return context
+        return self.representation(context, user, method, json_format=True)
 
-        if method in ['GET','PUT','PATCH']:
-            context['permissions'] = get_user_businesses_permissions(user)
-            context['groups'] = get_user_groups(user)
-        return context
     
-    def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("A user with that email already exists.")
-        if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError("A user with that username already exists.")
+
+    def representation(self, context, user: User, method: str, json_format=True):
         
-        return value
-    
+            if method in ['GET','PUT','PATCH']:
+                context['permissions'] = get_user_businesses_permissions(user, json_format=json_format),
+                context['groups'] = get_user_groups(user, json_format=json_format),
+            return context
 
 
 class UserListSerializer(serializers.ModelSerializer):

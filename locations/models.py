@@ -25,24 +25,7 @@ class Business(BaseModel):
         self.save()
         return self
     
-class UserBusinessMember(BaseModel):
-    user_key = models.ForeignKey('users.User', on_delete=models.CASCADE)
-    business_key = models.ForeignKey(Business, on_delete=models.CASCADE)
-    creation_date = models.DateField(auto_now_add=True, blank=True, null=True)
-    update_date = models.DateField(auto_now=True, blank=True, null=True)
-
-    def __str__(self):
-        return f"{self.user_key.email} - {self.business_key.name} ({self.role})"
     
-    def update(self, **kwargs):
-        for attr, value in kwargs.items():
-            setattr(self, attr, value)
-        self.save()
-        return self
-    
-    def get_plural(self):
-        return "userbusinessmembers"
-
 class Headquarters(BaseModel):
     name = models.CharField(max_length=100)
     address = models.CharField(max_length=255)
@@ -63,6 +46,9 @@ class Headquarters(BaseModel):
     def get_plural(self):
         return "headquarters"
     
+    def get_business(self):
+        return self.business_key
+    
 class InternalLocation(BaseModel):
     name = models.CharField(max_length=100)
     floor = models.CharField(max_length=50)
@@ -82,4 +68,7 @@ class InternalLocation(BaseModel):
     
     def get_plural(self):
         return "internallocations"
+    
+    def get_business(self):
+        return self.headquarters_key.get_business()
 

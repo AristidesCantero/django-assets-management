@@ -33,7 +33,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('assets/', include('assets.urls')),
     path('protocol/', include('protocol.urls')),
-    path('locations/', include('locations.api.urls')),
+    path('locations/', include('locations.urls')),
     path('users/', include('users.urls')),
     path('permisos/', include('permissions.urls')),
 

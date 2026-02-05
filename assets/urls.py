@@ -1,9 +1,9 @@
 from django.contrib import admin
 from django.urls import path, include
 
-from .api.views import general_views
+from .api.asset_api import *
 
 urlpatterns = [
-    path('assets/',general_views.AssetsAPIView.as_view()),
-    path('asset/<int:pk>',general_views.AssetAPIView.as_view()),
+    path('assets/',AssetListAPIView.as_view()),
+    path('asset/<int:pk>',AssetAPIView.as_view()),
 ]
