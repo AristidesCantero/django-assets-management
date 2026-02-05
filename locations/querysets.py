@@ -44,7 +44,8 @@ class HeadquartersQuerySet(models.QuerySet):
 
 
     def headquarter_user_has_permission(self, request, pk) -> dict:
-        headquarter = self.get(pk=pk)
+        Headquarters = apps.get_model('locations','Headquarters')
+        headquarter = Headquarters.objects.get(pk=pk)
         user = request.user
 
         if not headquarter:
@@ -58,7 +59,7 @@ class HeadquartersQuerySet(models.QuerySet):
              return {"hq":headquarter, "exists":True}
         
         business = headquarter.get_business()
-        permission_required = f"{method_to_action[request.method]}_{self.model.model_name}"
+        permission_required = f"{method_to_action[request.method]}_{Headquarters._meta.model_name}"
         Permission = apps.get_model('auth', 'Permission')
         permission = Permission.objects.get(codename=permission_required)
         user_has_perm = UserQuerySet().user_has_perm_over_business(user=user,business=business,perm=permission)

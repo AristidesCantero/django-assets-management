@@ -60,6 +60,18 @@ class HeadquartersSerializer(serializers.Serializer):
         return updated_headquarter
     
 
+    def to_representation(self, instance):
+        return {
+            instance.id:{
+                'name': instance.name,
+                'address': instance.address,
+                'phone': instance.phone,
+                'business':instance.business_key.id
+            }
+        }
+    
+    
+
 class HeadquartersListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Headquarters
