@@ -9,4 +9,5 @@ estructura_permisos.txt
 .dockerignore
 db_drf
 .gitignore
+venv/
 arquitectura.txt
