@@ -1,5 +1,5 @@
 from rest_framework.serializers import ModelSerializer
-from ..models import Asset
+from assets.domain.models import Asset
 
 
 

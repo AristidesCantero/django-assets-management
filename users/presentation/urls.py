@@ -1,7 +1,7 @@
 from django.urls import path
 
-from users.api.user_api import *
-from users.api.group_api import *
+from users.presentation.api.group_api import *
+from users.presentation.api.user_api import *
 
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,

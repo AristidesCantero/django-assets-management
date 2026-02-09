@@ -4,10 +4,10 @@ from django.contrib.auth.models import Permission, Group
 from django.contrib.contenttypes.models import ContentType
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
-from users.api.validators import validate_name, validate_last_name, validate_email
-from users.serializers.data_manage.set_businesses import *
-from users.serializers.data_manage.permission_manager import *
-from users.serializers.validators.validators import *
+from users.presentation.api.validators import validate_name, validate_last_name, validate_email
+from users.presentation.serializers.data_manage.set_businesses import *
+from users.presentation.serializers.data_manage.permission_manager import *
+from users.presentation.serializers.validators.validators import *
 
 
 DEFAULT_DJANGO_MODELS = [

@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from locations.models import Business
 from locations.serializers.business_serializer import BusinessListSerializer, BusinessSerializer
-from permissions.permissions import permissionToCheckModel
+from permissions.domain.permissions import permissionToCheckModel
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from users.querysets import BusinessQuerySet
 

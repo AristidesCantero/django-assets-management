@@ -3,7 +3,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework import status
 from permissions.domain.permissions import permissionsToCheckGroups
-from users.serializers.group_serializer import GroupSerializer, GroupListSerializer
+from users.presentation.serializers.group_serializer import GroupSerializer, GroupListSerializer
 from django.contrib.auth.models import Group
 from users.domain.models import User
 from django.db import connection

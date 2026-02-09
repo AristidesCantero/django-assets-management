@@ -1,8 +1,8 @@
 from rest_framework import serializers
 from django.contrib.auth.models import Group
 from rest_framework.validators import UniqueValidator
-from users.serializers.data_manage.permission_manager import set_group_permissions
-from users.serializers.validators.validators import validate_all_group_permissions
+from users.presentation.serializers.data_manage.permission_manager import set_group_permissions
+from users.presentation.serializers.validators.validators import validate_all_group_permissions
 from permissions.models import ForbiddenGroupPermissions
 
 

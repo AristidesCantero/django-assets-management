@@ -2,17 +2,11 @@ from rest_framework.response import Response
 from rest_framework.generics import RetrieveUpdateDestroyAPIView, ListCreateAPIView
 from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from users.serializers.user_serializer import UserSerializer, UserListSerializer, UserTokenObtainPairSerializer
+from users.presentation.serializers.user_serializer import UserSerializer, UserListSerializer, UserTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView,TokenRefreshView
-<<<<<<< HEAD:users/api/user_api.py
-from permissions.permissions import *
-from users.models import User
-from django.db import Error, connection
-=======
 from permissions.domain.permissions import *
 from users.domain.models import User
 from django.db import connection
->>>>>>> refactor/architecture:users/presentation/api/user_api.py
 
 
 def sqlQuery(query: str, params: tuple = ()):

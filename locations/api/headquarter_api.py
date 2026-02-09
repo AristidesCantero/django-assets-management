@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from locations.serializers.headquarter_serializer import HeadquartersListSerializer, HeadquartersSerializer
 from rest_framework_simplejwt.authentication import JWTAuthentication
-from permissions.permissions import permissionToCheckModel
+from permissions.domain.permissions import permissionToCheckModel
 from locations.querysets import HeadquartersQuerySet
 from locations.models import Headquarters
 

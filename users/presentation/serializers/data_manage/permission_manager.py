@@ -1,11 +1,5 @@
-<<<<<<< HEAD:users/serializers/data_manage/permission_manager.py
-from locations.models import Business
-from users.models import User
-from permissions.permissions import *
-=======
 from users.domain.models import User
 from permissions.domain.permissions import *
->>>>>>> refactor/architecture:users/presentation/serializers/data_manage/permission_manager.py
 from django.contrib.auth.models import Group
 
 

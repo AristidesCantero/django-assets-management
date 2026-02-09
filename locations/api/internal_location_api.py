@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.generics import *
 from rest_framework.response import Response
-from permissions.permissions import permissionToCheckModel
+from permissions.domain.permissions import permissionToCheckModel
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from locations.serializers.internal_location_serializer import InternalLocationSerializer, InternalLocationListSerializer
 from locations.querysets import InternalLocationQuerySet
