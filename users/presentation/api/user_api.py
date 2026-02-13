@@ -36,7 +36,6 @@ class UserListAPIView(ListCreateAPIView):
 
 
     def get_queryset(self, user: User = None):
-
         if user.is_superuser:
             return User.objects.all()
         return User.objects.users_allowed_to_user(request=self.request)   
@@ -73,7 +72,7 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
     
     
     def get_queryset(self, pk):
-        user_data = User.objects.user_can_access_user(request=self.request, accessed_user_id=pk)
+        user_data = User.objects.user_is_allowed_to_check_user(request=self.request, accessed_user_id=pk)
         if not user_data["exists"]:
             raise User.DoesNotExist
         return user_data["user"]

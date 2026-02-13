@@ -62,7 +62,7 @@ class HeadquartersQuerySet(models.QuerySet):
         permission_required = f"{method_to_action[request.method]}_{Headquarters._meta.model_name}"
         Permission = apps.get_model('auth', 'Permission')
         permission = Permission.objects.get(codename=permission_required)
-        user_has_perm = UserQuerySet().user_has_perm_over_business(user=user,business=business,perm=permission)
+        user_has_perm = UserQuerySet().businesses_where_user_has_userpermission(user=user,business=business,perm=permission)
 
         if not user_has_perm:
              return {"hq":None, "exists":True}
@@ -124,7 +124,7 @@ class InternalLocationQuerySet(models.QuerySet):
                permission_required = f"{method_to_action[request.method]}_{InternalLocation._meta.model_name}"
                Permission = apps.get_model('auth', 'Permission')
                permission = Permission.objects.get(codename=permission_required)
-               user_has_perm = UserQuerySet().user_has_perm_over_business(user=user,business=business,perm=permission)
+               user_has_perm = UserQuerySet().businesses_where_user_has_userpermission(user=user,business=business,perm=permission)
 
                if not user_has_perm:
                     return {"hq":None, "exists":True}
