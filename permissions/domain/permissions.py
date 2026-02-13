@@ -3,6 +3,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import Permission, Group
 from users.domain.models import User
 from permissions.domain.models import UserBusinessPermission, GroupBusinessPermission
+from permissions.domain.decorators.user_decorator import *
 from django.db.models import Model
 from django.apps import apps
 
@@ -20,13 +21,16 @@ method_to_action = {
     'DELETE': 'delete'
 }
 
+@returns_from_inner
+def verify_unidentified_or_superadmin(request):
+            user = request.user
+            if not user.is_authenticated or not user:
+                return False
+            if user.is_superuser:
+                return True
+            return None
 
-def belongsToAGroup(self, user: User, group: Group):
-        query =  "SELECT id FROM permissions_groupbusinesspermission WHERE user_key_id = %s and group_key_id = %s" % (user.id, group.id)
-        ubp = set([str(ubpm.id) for ubpm in GroupBusinessPermission.objects.raw(query)])
-        return group.id in ubp
-
-def checkIfUserHasPermission(request=None):
+def check_if_user_has_permission(request=None):
         if request is None:
             return False
         users_allowed = User.objects.users_allowed_to_user(request=request)
@@ -54,8 +58,7 @@ def checkIfUserHasPermissionOverModel(request=None, view=None):
 
 
 def user_can_check_user(request, accessed_user_id: str) -> list[bool,bool]:
-    UserQuerySet = User.objects
-    user_value = UserQuerySet.user_can_access_user(request=request, accessed_user_id=accessed_user_id)
+    user_value = User.objects.user_is_allowed_to_check_user(request=request, accessed_user_id=accessed_user_id)
     searched_user_exists = user_value.get("exists", False)
     user_value = user_value.get("user", None)
     returned_list = [searched_user_exists, user_value]
@@ -70,27 +73,25 @@ class isAdmin(BasePermission):
     def has_permission(self, request, view):
         user = request.user
         group = Group.objects.get(name="ADMIN")
-        groups_user_is_admin = belongsToAGroup(user=user,group=group)
+        groups_user_is_admin = User.objects.user_belongs_to_a_group(user=user,group=group)
         return True if groups_user_is_admin else False
     
 class isManager(BasePermission):
     def has_permission(self, request, view):
         user = request.user
         group = Group.objects.get(name="MANAGER")
-        groups_user_is_manager = belongsToAGroup(user=user,group=group)
+        groups_user_is_manager = User.objects.user_belongs_to_a_group(user=user,group=group)
         return True if groups_user_is_manager else False
+
+
 
 #Class to verify if a user has permissions to access the users API (checks if has a user o group permission in any business asociated)
 class permissionsToCheckUsers(DjangoModelPermissions):
+    @handle_early_return
     def has_permission(self, request, view):
-        user = request.user
 
-        if not user.is_authenticated or not user:
-            return False
         
-        if user.is_superuser:
-            return True
-        
+        verify_unidentified_or_superadmin(request)
         path_has_primary = path_has_primary_key(request.path)
 
         if path_has_primary:
@@ -98,18 +99,12 @@ class permissionsToCheckUsers(DjangoModelPermissions):
             if not user_value:
                 return False
 
-        return checkIfUserHasPermission(request=request)
+        return check_if_user_has_permission(request=request)
 
 
 class permissionsToCheckGroups(DjangoModelPermissions):
     def has_permission(self, request, view):
-        user = request.user
-        if not user.is_authenticated or not user:
-            return False
-        
-        if user.is_superuser:
-            return True
-        
+        verify_unidentified_or_superadmin(request)
         return False
         
         #permission_required = f'{method_to_action[request.method]}_{Group._meta.model_name}'
@@ -118,12 +113,5 @@ class permissionsToCheckGroups(DjangoModelPermissions):
 
 class permissionToCheckModel(DjangoModelPermissions):
     def has_permission(self, request, view):
-        user = request.user
-        
-        if not user.is_authenticated or not user:
-            return False
-        
-        if user.is_superuser:
-            return True
-        
+        verify_unidentified_or_superadmin(request)
         return checkIfUserHasPermissionOverModel(request=request, view=view)
