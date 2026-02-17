@@ -54,33 +54,38 @@ class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
         
         return [user]
 
-    def user_is_allowed_to_check_user(self, request, accessed_user_id: str):
-            user = request.user
-            accessed_user = self.get(pk=accessed_user_id)
+    def user_is_allowed_to_check_user(self, request, consulted_user_id: str):
+            logged_user = request.user
+            consulted_user = self.get(pk=consulted_user_id)
             
-            if not accessed_user:
+            if not consulted_user:
                 return {"user": None, "exists": False}
 
-            if user.is_superuser:
-                return {"user": accessed_user, "exists": True}
+            if logged_user.is_superuser:
+                return {"user": consulted_user, "exists": True}
             
-            permission = self.get_permission(method=request.method, accessed_model=user)
+            permission = self.get_permission(method=request.method, accessed_model=logged_user)
 
+            
             if not permission:
                 return {"user": None, "exists": True}
+           
 
-            business_where_user_belongs = self.get_queryset().businesses_where_user_belongs(user_id=accessed_user_id)
+            businesses_where_consulted_user_belongs = self.get_queryset().businesses_where_user_belongs(user_id=consulted_user_id)
 
-            if not business_where_user_belongs:
+            if not businesses_where_consulted_user_belongs:
                 return {"user": None, "exists": True}
             
-            businesses_where_user_has_permission = self.users_of_businesses_where_user_belongs(user_id=user.id, businesses=business_where_user_belongs, permission_id=permission.id)
+            businesses_where_logged_user_has_permission = self.users_of_businesses_where_user_belongs(user_id=logged_user.id, businesses=businesses_where_consulted_user_belongs, permission_id=permission.id)
 
             #no businesses where the user has permission over the accessed user
-            if not businesses_where_user_has_permission:
+            if not businesses_where_logged_user_has_permission:
                 return {"user": None, "exists": True}
             
-            return {"user": accessed_user, "exists": True}
+            if not (set(businesses_where_consulted_user_belongs) & set(businesses_where_logged_user_has_permission)):
+                return {"user": None, "exists":True}
+            
+            return {"user": consulted_user, "exists": True}
 
     def businesses_allowed_to_user(self, request, model=None) -> list:
         user = request.user

@@ -57,8 +57,8 @@ def checkIfUserHasPermissionOverModel(request=None, view=None):
     return True if users_allowed else False
 
 
-def user_can_check_user(request, accessed_user_id: str) -> list[bool,bool]:
-    user_value = User.objects.user_is_allowed_to_check_user(request=request, accessed_user_id=accessed_user_id)
+def user_can_check_user(request, consulted_user_id: str) -> list[bool,bool]:
+    user_value = User.objects.user_is_allowed_to_check_user(request=request, consulted_user_id=consulted_user_id)
     searched_user_exists = user_value.get("exists", False)
     user_value = user_value.get("user", None)
     returned_list = [searched_user_exists, user_value]
@@ -95,7 +95,7 @@ class permissionsToCheckUsers(DjangoModelPermissions):
         path_has_primary = path_has_primary_key(request.path)
 
         if path_has_primary:
-            exists, user_value = user_can_check_user(request=request, accessed_user_id=path_has_primary) 
+            exists, user_value = user_can_check_user(request=request, consulted_user_id=path_has_primary) 
             if not user_value:
                 return False
 

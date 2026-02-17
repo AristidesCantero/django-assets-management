@@ -20,6 +20,11 @@ def sqlQuery(query: str, params: tuple = ()):
         return results
 
 
+def path_has_primary_key(path: str) -> bool:
+    segments = path.strip('/').split('/')
+    primary_key = segments[-1]
+    return primary_key if primary_key.isdigit() else None
+
 
 
 
@@ -71,8 +76,8 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
     http_method_names = ["get", "patch"]
     
     
-    def get_queryset(self, pk):
-        user_data = User.objects.user_is_allowed_to_check_user(request=self.request, accessed_user_id=pk)
+    def get_queryset(self, pk, consulted_user_id):
+        user_data = User.objects.user_is_allowed_to_check_user(request=self.request, consulted_user_id=consulted_user_id)
         if not user_data["exists"]:
             raise User.DoesNotExist
         return user_data["user"]
@@ -84,7 +89,8 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
 
     def get(self, request, pk, *args, **kwargs):
         try:
-            user = self.get_queryset(pk=pk)
+            consulted_user = path_has_primary_key(request.path)
+            user = self.get_queryset(pk=pk, consulted_user_id=consulted_user)
             response_data = {
                 'data': self.serializer_class(user,context={'request': request}).data
             }
@@ -94,7 +100,8 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
  
     def patch(self, request, pk, *args, **kwargs):
         try:
-            user = self.get_queryset(pk=pk)
+            consulted_user = path_has_primary_key(request.path)
+            user = self.get_queryset(pk=pk, consulted_user_id=consulted_user)
         except User.DoesNotExist:
             return Response({'detail': 'User has not been found.'}, status=status.HTTP_404_NOT_FOUND)
         
@@ -106,7 +113,8 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
     
     def delete(self, request, *args, **kwargs):
         try:
-            user = self.get_queryset(pk=kwargs.get('pk'))
+            consulted_user = path_has_primary_key(request.path)
+            user = self.get_queryset(pk=kwargs.get('pk'), consulted_user_id=consulted_user)
             user_serializer_data = self.serializer_class(user, context={'request': request}).data
             user.delete()
             return Response({'detail': 'User has been deleted successfully.', "data": user_serializer_data}, status=status.HTTP_200_OK)
