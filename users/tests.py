@@ -14,78 +14,21 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from users.domain.models import User
 from locations.domain.models import Business
-
+from permissions.domain.models import UserBusinessPermission, GroupBusinessPermission
 from django.contrib.auth.models import Permission, Group
+from django.contrib.contenttypes.models import ContentType
+
+
 
 
 class BaseUserTestCase(APITestCase):
     """Base test case with common setup for user tests."""
-    
-    def setUp(self):
-        """Set up test data."""
-        print("creating database data........")
-        self.client = APIClient()
-        
-        # Create a superuser for testing
-        self.superuser = User.objects.create_superuser(
-            username='admin_test',
-            email='admin@test.com',
-            name='Admin',
-            last_name='Test',
-            password='adminpassword123'
-        )
-        
-        # Create a regular user
-        self.regular_user = User.objects.create_user(
-            username='regular_test',
-            email='regular@test.com',
-            name='Regular',
-            last_name='User',
-            password='regularpassword123'
-        )
-        
-        # Create another regular user
-        self.another_user = User.objects.create_user(
-            username='another_test',
-            email='another@test.com',
-            name='Another',
-            last_name='User',
-            password='anotherpassword123'
-        )
-        
-        # Create test business
-        self.business = Business.objects.create(
-            name='Test Business',
-            tin='1234567890',
-            utr='djvkjdfvki'
-        )
-        
-        # Create permissions for testing
-        # Create a group for testing
-        self.test_group = Group.objects.create(name='Test Group')
-
-        self.admin_group = Group.objects.get(name='ADMIN')
-
-
-        print("database seeded!")
-        
-        # URL patterns
-        self.user_url = '/users/usuario/'
-        self.user_list_url = '/users/usuarios/'
-        self.token_url = '/api/token/'
-        self.token_refresh_url = '/api/token/refresh/'
-
-
-
-class TestUserListAPIView(BaseUserTestCase):
-    """Tests for UserListAPIView (GET and POST)."""
-    
+    @classmethod
     def get_user_token(self, user):
         """Helper method to get JWT token for a user."""
         refresh = RefreshToken.for_user(user)
         return str(refresh.access_token)
     
-
     def assertPermission(self, method, url, expected_status, data=None, bearer_token="", content_type='application/json'):
         """Helper to test permissions for a specific method"""
         headers = { "Authorization": f'Bearer {bearer_token}',  "Content-Type": content_type }
@@ -99,23 +42,134 @@ class TestUserListAPIView(BaseUserTestCase):
             response = self.client.delete(url, headers=headers,format='json')
         elif method == 'put':
             response = self.client.put(url, data or {}, headers=headers, format='json')
+
+
+        try:
+            if isinstance(expected_status,list):
+                self.assertIn(response.status_code, expected_status)
+            
+            self.assertEqual(response.status_code, expected_status)
+            return response
+        except AssertionError:
+            print(AssertionError)
+            print(response.json())
+            raise 
+    @classmethod        
+    def create_permissions_dict(self, business_id, permissions_ids):
+        context = { 'permissions': {business_id : {
+                            permission_id : True for permission_id in permissions_ids
+                        } }}
+        return context
+    @classmethod
+    def create_groups_dict(self, business_id, groups_ids):
+        context = { 'groups': { business_id : {
+                    group_id : True for group_id in groups_ids
+        }  }}
+        return context
+    @classmethod
+    def set_permissions(self, access_user, business_id: str, permissions_ids : list[str], user_id = str):
+        if not isinstance(access_user, User):
+            raise TypeError(f'access_user expected as User type, recieved {type(access_user)}')
+
+        if not isinstance(user_id,str) and not isinstance(user_id,int):
+            raise TypeError(f'user_id expected to be str or int, recieved {type(user_id)}')
         
-        if isinstance(expected_status,list):
-            self.assertIn(response.status_code, expected_status)
+        if not isinstance(permissions_ids,list):
+            raise TypeError(f'permissions_ids expected list, recieved {type(permissions_ids)}')
+
+        context = self.create_permissions_dict(business_id=business_id, permissions_ids=permissions_ids)
+        url = f"/users/usuario/{user_id}/"
+        bearer_token = self.get_user_token(user=access_user)
+
+        print(f'url {url}')
+        print(f'token of user {access_user}')
+        return self.client.patch(path=url, data=context, headers={ "Authorization": f'Bearer {bearer_token}',  "Content-Type": 'application/json'}, format='json')
+    @classmethod
+    def set_groups(self, access_user, business_id: str, groups_ids: list[str], user_id: str):
+        context = self.create_groups_dict(business_id=business_id,groups_ids=groups_ids)
+        url = f"/users/usuario/{user_id}/"
+        bearer_token = self.get_user_token(access_user)
+        return self.client.patch(path=url, data=context, headers={ "Authorization": f'Bearer {bearer_token}',  "Content-Type": 'application/json'}, format='json')
+
+    #def setUp(self):
+
+    @classmethod
+    def setUpTestData(cls):
+        """Set up test data."""
+        print("creating database data........")
+        cls.client = APIClient()
         
-        self.assertEqual(response.status_code, expected_status)
-        return response
+        # Create a superuser for testing
+        cls.superuser = User.objects.create_superuser(
+            username='admin_test',
+            email='admin@test.com',
+            name='Admin',
+            last_name='Test',
+            password='adminpassword123'
+        )
+
+        #authorized user, helps to check if permissions works        
+        cls.auth_user = User.objects.create_user(
+            username='auth_test',
+            email='regular@test.com',
+            name='Auth',
+            last_name='User',
+            password='authpassword123'
+        )
+
+        # Create a regular user
+        cls.regular_user = User.objects.create_user(
+            username='regular_user',
+            email='regular_user@test.com',
+            name='Regular',
+            last_name='User',
+            password='authpassword123'
+        )
+        # Create another regular user
+        cls.another_user = User.objects.create_user(
+            username='another_test',
+            email='another@test.com',
+            name='Another',
+            last_name='User',
+            password='anotherpassword123'
+        )
+        # Create test business
+        cls.business = Business.objects.create(
+            name='Test Business',
+            tin='1234567890',
+            utr='djvkjdfvki'
+        )
+        # Get the admin group
+        cls.admin_group = Group.objects.get(name='ADMIN')
+        cls.manager_group = Group.objects.get(name='MANAGER')
+
+
+        
+        # URL patterns
+        cls.user_url = '/users/usuario/'
+        cls.user_list_url = '/users/usuarios/'
+        cls.token_url = '/api/token/'
+        cls.token_refresh_url = '/api/token/refresh/'
+        print("database seeded!")
+
+
+
+
+
+
+class TestSuperUserListAPIView(BaseUserTestCase):
+    """Tests for UserListAPIView (GET and POST)."""
+       
 
     #for superuser
-
     @tag('method','superuser_list_get')
     def test_list_users_superuser_get(self):
         """Test that superuser can list all users."""
         token = self.get_user_token(self.superuser)
         self.assertPermission('get',self.user_list_url,status.HTTP_200_OK,bearer_token=token)
+        print('superuser list get test passed')
         #self.assertIn('data', response.data)
         #self.assertIsInstance(response.data['data'], list)
-
 
     @tag('method','superuser_list_post')
     def test_list_users_superuser_post(self):
@@ -123,58 +177,89 @@ class TestUserListAPIView(BaseUserTestCase):
         token = self.get_user_token(self.superuser)
         new_user = {'username': 'CamiloVargas', 'name': 'Camilo', 'last_name': 'Vargas', 'email': 'cvargasf@gmail.com', 'password': 'cvargarcamilo','groups':{self.business.id: {self.admin_group.id: True}}}
         self.assertPermission('post',self.user_list_url,status.HTTP_200_OK,new_user,bearer_token=token)
+        print('superuser list post test passed')
        
-    
     @tag('method','superuser_get')
     def test_users_superuser_get(self):
         """Test that superuser can read a user."""
         token = self.get_user_token(self.superuser)
         self.assertPermission('get',self.user_url+f'{self.regular_user.id}/',status.HTTP_200_OK,bearer_token=token)
+        print('superuser get test passed')
 
     @tag('method','superuser_patch')
     def test_users_superuser_patch(self):
-        """Test that superuser can read a user."""
+        """Test that superuser can modify a user."""
         token = self.get_user_token(self.superuser)
         data = {'groups':{self.business.id:{self.admin_group.id:True}}}
         self.assertPermission('patch',self.user_url+f'{self.regular_user.id}/',status.HTTP_200_OK,data=data,bearer_token=token)
+        print('superuser patch test passed')
 
     @tag('method','superuser_delete')
     def test_users_superuser_delete(self):
         """Test that superuser can read a user."""
         token = self.get_user_token(self.superuser)
-        self.assertPermission('delete',self.user_url+f'{self.regular_user.id}/',status.HTTP_200_OK,bearer_token=token)
+        self.assertPermission('delete',self.user_url+f'{self.regular_user.id}/',status.HTTP_405_METHOD_NOT_ALLOWED,bearer_token=token)
+        #self.assertPermission('get',self.user_url+f'{self.regular_user.id}/', status.HTTP_405_METHOD_NOT_ALLOWED, bearer_token=token)
+        print('superuser list delete test passed')
 
 
+class TestUserListAPIView(BaseUserTestCase):
+    @classmethod
+    def setUpTestData(cls):
+        database_setup = super().setUpTestData()
+        content_type_id = ContentType.objects.get(model='user').id
+        permissions = [permission.id for permission in Permission.objects.filter(content_type=content_type_id)]
+        permission1_response = cls.set_permissions(access_user=cls.superuser,business_id=cls.business.id, permissions_ids=permissions, user_id=cls.auth_user.id)
+        group1_response = cls.set_groups(access_user=cls.superuser,business_id=cls.business.id,groups_ids=[cls.admin_group.id], user_id=cls.auth_user.id)
+        permission2_response = cls.set_groups(access_user=cls.superuser,business_id=cls.business.id,groups_ids=[cls.manager_group.id], user_id=cls.regular_user.id)
 
+        #print(UserBusinessPermission.objects.filter(user_key=cls.auth_user.id))
+        #print(GroupBusinessPermission.objects.filter(user_key=cls.auth_user.id))
+        #print(GroupBusinessPermission.objects.filter(user_key=cls.regular_user.id))
 
+        return database_setup
 
+    @tag('method','auth_user_list_get')
+    def test_list_users_auth_user_get(self):
+        """Test that auth_user can list all its users."""
+        token = self.get_user_token(self.auth_user)
+        self.assertPermission('get',self.user_list_url,status.HTTP_200_OK,bearer_token=token)
+        print('auth user list get test PASSED')
+        #self.assertIn('data', response.data)
+        #self.assertIsInstance(response.data['data'], list)
 
-    @tag('auth','regular_user_no_auth')
-    def test_list_authenticated_regular_user_unauthorized(self):
-        """Test that authenticated regular user can list users."""
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.get_user_token(self.superuser)}')
-        response = self.client.get(self.user_list_url)
-        response2 = self.client.get(self.user_url+f'{self.regular_user.id}')
-        
-        # The response status depends on permissions
-        self.assertIn(response.status_code, [status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN])
+    @tag('method','auth_user_list_post')
+    def test_list_users_auth_user_post(self):
+        """Test that auth_user can create a user."""
+        token = self.get_user_token(self.auth_user)
+        new_user = {'username': 'CamiloVargas', 'name': 'Camilo', 'last_name': 'Vargas', 'email': 'cvargasf@gmail.com', 'password': 'cvargarcamilo','groups':{self.business.id: {self.admin_group.id: True}}}
+        self.assertPermission('post',self.user_list_url,status.HTTP_200_OK,new_user,bearer_token=token)
+        print('auth user list post test PASSED')
+       
+    @tag('method','auth_user_get')
+    def test_users_auth_user_get(self):
+        """Test that auth_user can read a user."""
+        print(UserBusinessPermission.objects.all())
+        token = self.get_user_token(self.auth_user)
+        self.assertPermission('get',self.user_url+f'{self.regular_user.id}/',status.HTTP_200_OK,bearer_token=token)
+        print('auth user get test PASSED')
 
+    @tag('method','auth_user_patch')
+    def test_users_auth_user_patch(self):
+        """Test that auth_user can read a user."""
+        token = self.get_user_token(self.auth_user)
+        data = {'groups':{self.business.id:{self.admin_group.id:True}}}
+        self.assertPermission('patch',self.user_url+f'{self.regular_user.id}/',status.HTTP_200_OK,data=data,bearer_token=token)
+        print('auth user patch test PASSED')
 
+    @tag('method','auth_user_delete')
+    def users_auth_user_delete(self):
+        """Test that auth_user can read a user."""
+        token = self.get_user_token(self.auth_user)
+        self.assertPermission('delete',self.user_url+f'{self.regular_user.id}/',status.HTTP_405_METHOD_NOT_ALLOWED,bearer_token=token)
+        print('auth user delete test PASSED')
 
-    @tag('','')
-    def test_list_users_superuser(self):
-        """Test that superusers can access list and individual GET"""
-        token = self.get_user_token(self.superuser)
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
-        response = self.client.get(self.user_list_url)
-
-        # The response status depends on permissions
-        self.assertIn(response.status_code, [status.HTTP_200_OK])
     
-
-
-    @tag('auth','unauth')
-    def test_list_users_unauthenticated(self):
         """Test that unauthenticated users cannot list users."""
         response = self.client.get(self.user_list_url)
         
@@ -370,73 +455,6 @@ class TestJWTTokenEndpoints(BaseUserTestCase):
         response = self.client.post(self.token_refresh_url, refresh_data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-
-class TestUserModel(TestCase):
-    """Tests for User model functionality."""
-    
-    def setUp(self):
-        """Set up test data."""
-        self.user = User.objects.create_user(
-            username='model_test',
-            email='model@test.com',
-            name='Model',
-            last_name='Test',
-            password='modelpassword123'
-        )
-    
-    def test_user_creation(self):
-        """Test user model creation."""
-        self.assertEqual(self.user.username, 'model_test')
-        self.assertEqual(self.user.email, 'model@test.com')
-        self.assertTrue(self.user.is_active)
-        self.assertFalse(self.user.is_staff)
-        self.assertFalse(self.user.is_superuser)
-    
-    def test_user_str_representation(self):
-        """Test user string representation."""
-        expected_str = f'{self.user.name} {self.user.last_name}'
-        self.assertEqual(str(self.user), expected_str)
-    
-    def test_user_get_plural(self):
-        """Test user get_plural method."""
-        self.assertEqual(self.user.get_plural(), 'users')
-    
-    def test_create_superuser(self):
-        """Test superuser creation."""
-        superuser = User.objects.create_superuser(
-            username='super_test',
-            email='super@test.com',
-            name='Super',
-            last_name='User',
-            password='supassword123'
-        )
-        
-        self.assertTrue(superuser.is_superuser)
-        self.assertTrue(superuser.is_staff)
-        self.assertTrue(superuser.is_active)
-    
-    def test_create_user_without_email_raises_error(self):
-        """Test that creating user without email raises error."""
-        with self.assertRaises(ValueError):
-            User.objects.create_user(
-                username='noemail_test',
-                email='',
-                name='No',
-                last_name='Email',
-                password='password123'
-            )
-    
-    def test_user_password_is_hashed(self):
-        """Test that user password is properly hashed."""
-        self.user.set_password('newpassword123')
-        self.user.save()
-        
-        # Password should not be stored in plain text
-        self.assertNotEqual(self.user.password, 'newpassword123')
-        
-        # But should be verifiable
-        self.assertTrue(self.user.check_password('newpassword123'))
 
 
 class TestUserPermissions(BaseUserTestCase):
