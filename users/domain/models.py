@@ -56,13 +56,16 @@ class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
 
     def user_is_allowed_to_check_user(self, request, consulted_user_id: str):
             logged_user = request.user
-            consulted_user = self.get(pk=consulted_user_id)
+            consulted_user = self.filter(pk=consulted_user_id).first()
             
             if not consulted_user:
                 return {"user": None, "exists": False}
-
-            if logged_user.is_superuser:
-                return {"user": consulted_user, "exists": True}
+            
+            if consulted_user.is_superuser:
+                if logged_user.is_superuser:
+                    return {"user": consulted_user, "exists": True, 'superuser':True}
+                return {"user": None, "exists": True}
+            
             
             permission = self.get_permission(method=request.method, accessed_model=logged_user)
 
@@ -78,8 +81,7 @@ class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
             
             businesses_where_logged_user_has_permission = self.users_of_businesses_where_user_belongs(user_id=logged_user.id, businesses=businesses_where_consulted_user_belongs, permission_id=permission.id)
 
-            #no businesses where the user has permission over the accessed user
-            if not businesses_where_logged_user_has_permission:
+            if not businesses_where_logged_user_has_permission: #logged user has permission here
                 return {"user": None, "exists": True}
             
             if not (set(businesses_where_consulted_user_belongs) & set(businesses_where_logged_user_has_permission)):

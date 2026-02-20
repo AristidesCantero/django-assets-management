@@ -73,12 +73,12 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = UserSerializer
     authentication_classes = [JWTAuthentication]
     permission_classes = [permissionsToCheckUsers]
-    http_method_names = ["get", "patch"]
+    http_method_names = ["get", "patch", "delete"]
     
     
-    def get_queryset(self, pk, consulted_user_id):
-        user_data = User.objects.user_is_allowed_to_check_user(request=self.request, consulted_user_id=consulted_user_id)
-        if not user_data["exists"]:
+    def get_queryset(self, pk):
+        user_data = User.objects.user_is_allowed_to_check_user(request=self.request, consulted_user_id=pk)
+        if not user_data["exists"] or not user_data['user']:
             raise User.DoesNotExist
         return user_data["user"]
 
@@ -89,32 +89,32 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
 
     def get(self, request, pk, *args, **kwargs):
         try:
-            consulted_user = path_has_primary_key(request.path)
-            user = self.get_queryset(pk=pk, consulted_user_id=consulted_user)
+            user = self.get_queryset(pk=pk)
             response_data = {
                 'data': self.serializer_class(user,context={'request': request}).data
             }
             return Response(response_data, status=status.HTTP_200_OK)
         except User.DoesNotExist:
+            print('a user has not been found')
             return Response({'detail': 'User has not been found.'}, status=status.HTTP_404_NOT_FOUND)
  
     def patch(self, request, pk, *args, **kwargs):
         try:
-            consulted_user = path_has_primary_key(request.path)
-            user = self.get_queryset(pk=pk, consulted_user_id=consulted_user)
+            user = self.get_queryset(pk=pk)
         except User.DoesNotExist:
             return Response({'detail': 'User has not been found.'}, status=status.HTTP_404_NOT_FOUND)
         
         serializer = self.serializer_class(user, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
+            
             serializer.update(user, request.data)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    def delete(self, request, *args, **kwargs):
+    def delete(self, request, pk, *args, **kwargs):
         try:
-            consulted_user = path_has_primary_key(request.path)
-            user = self.get_queryset(pk=kwargs.get('pk'), consulted_user_id=consulted_user)
+            print(pk)
+            user = self.get_queryset(pk=pk)
             user_serializer_data = self.serializer_class(user, context={'request': request}).data
             user.delete()
             return Response({'detail': 'User has been deleted successfully.', "data": user_serializer_data}, status=status.HTTP_200_OK)

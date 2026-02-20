@@ -47,6 +47,7 @@ class BaseUserTestCase(APITestCase):
         try:
             if isinstance(expected_status,list):
                 self.assertIn(response.status_code, expected_status)
+                return response
             
             self.assertEqual(response.status_code, expected_status)
             return response
@@ -81,9 +82,10 @@ class BaseUserTestCase(APITestCase):
         url = f"/users/usuario/{user_id}/"
         bearer_token = self.get_user_token(user=access_user)
 
-        print(f'url {url}')
-        print(f'token of user {access_user}')
         return self.client.patch(path=url, data=context, headers={ "Authorization": f'Bearer {bearer_token}',  "Content-Type": 'application/json'}, format='json')
+    
+
+
     @classmethod
     def set_groups(self, access_user, business_id: str, groups_ids: list[str], user_id: str):
         context = self.create_groups_dict(business_id=business_id,groups_ids=groups_ids)
@@ -156,7 +158,7 @@ class BaseUserTestCase(APITestCase):
 
 
 
-
+#done
 class TestSuperUserListAPIView(BaseUserTestCase):
     """Tests for UserListAPIView (GET and POST)."""
        
@@ -202,7 +204,7 @@ class TestSuperUserListAPIView(BaseUserTestCase):
         #self.assertPermission('get',self.user_url+f'{self.regular_user.id}/', status.HTTP_405_METHOD_NOT_ALLOWED, bearer_token=token)
         print('superuser list delete test passed')
 
-
+#done
 class TestUserListAPIView(BaseUserTestCase):
     @classmethod
     def setUpTestData(cls):
@@ -239,7 +241,6 @@ class TestUserListAPIView(BaseUserTestCase):
     @tag('method','auth_user_get')
     def test_users_auth_user_get(self):
         """Test that auth_user can read a user."""
-        print(UserBusinessPermission.objects.all())
         token = self.get_user_token(self.auth_user)
         self.assertPermission('get',self.user_url+f'{self.regular_user.id}/',status.HTTP_200_OK,bearer_token=token)
         print('auth user get test PASSED')
@@ -253,124 +254,146 @@ class TestUserListAPIView(BaseUserTestCase):
         print('auth user patch test PASSED')
 
     @tag('method','auth_user_delete')
-    def users_auth_user_delete(self):
+    def test_users_auth_user_delete(self):
         """Test that auth_user can read a user."""
         token = self.get_user_token(self.auth_user)
         self.assertPermission('delete',self.user_url+f'{self.regular_user.id}/',status.HTTP_405_METHOD_NOT_ALLOWED,bearer_token=token)
         print('auth user delete test PASSED')
-
-    
-        """Test that unauthenticated users cannot list users."""
-        response = self.client.get(self.user_list_url)
-        
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
     
 
 
-class TestUserAPIView(BaseUserTestCase):
-    """Tests for UserAPIView (GET, PATCH, DELETE)."""
+class TestNotAuthUserAPIView(BaseUserTestCase):
+    """Tests for UserAPIView (GET, PATCH, DELETE)."""    
+
+    @classmethod
+    def setUpTestData(cls):
+        database_setup = super().setUpTestData()
+        content_type_id = ContentType.objects.get(model='user').id
+        permissions = [permission.id for permission in Permission.objects.filter(content_type=content_type_id)]
+        permission1_response = cls.set_permissions(access_user=cls.superuser,business_id=cls.business.id, permissions_ids=permissions, user_id=cls.auth_user.id)
+        group1_response = cls.set_groups(access_user=cls.superuser,business_id=cls.business.id,groups_ids=[cls.admin_group.id], user_id=cls.auth_user.id)
+        permission2_response = cls.set_groups(access_user=cls.superuser,business_id=cls.business.id,groups_ids=[cls.manager_group.id], user_id=cls.regular_user.id)
+
+        #print(UserBusinessPermission.objects.filter(user_key=cls.auth_user.id))
+        #print(GroupBusinessPermission.objects.filter(user_key=cls.auth_user.id))
+        #print(GroupBusinessPermission.objects.filter(user_key=cls.regular_user.id))
+
+        return database_setup
+
+    @tag('not_auth','method','not_auth_user_list_get')
+    def test_list_users_not_auth_user_get(self):
+        """Test that auth_user cannot list all its users."""
+        token = self.get_user_token(self.regular_user)
+        self.assertPermission('get',self.user_list_url,[status.HTTP_403_FORBIDDEN,status.HTTP_401_UNAUTHORIZED],bearer_token=token)
+        print('auth user list get test PASSED')
+        #self.assertIn('data', response.data)
+        #self.assertIsInstance(response.data['data'], list)
+
+    @tag('not_auth','method','not_auth_user_list_post')
+    def test_list_users_not_auth_user_post(self):
+        """Test that not_auth_user cannot create a user."""
+        token = self.get_user_token(self.regular_user)
+        new_user = {'username': 'CamiloVargas', 'name': 'Camilo', 'last_name': 'Vargas', 'email': 'cvargasf@gmail.com', 'password': 'cvargarcamilo','groups':{self.business.id: {self.admin_group.id: True}}}
+        self.assertPermission('post',self.user_list_url,[status.HTTP_403_FORBIDDEN,status.HTTP_401_UNAUTHORIZED],new_user,bearer_token=token)
+        print('auth user list post test PASSED')
+       
+    @tag('not_auth','method','not_auth_user_get')
+    def test_users_not_auth_user_get(self):
+        """Test that not_auth_user cannot read a user."""
+        token = self.get_user_token(self.regular_user)
+        self.assertPermission('get',self.user_url+f'{self.regular_user.id}/',[status.HTTP_403_FORBIDDEN,status.HTTP_401_UNAUTHORIZED],bearer_token=token)
+        print('auth user get test PASSED')
+
+    @tag('not_auth','method','not_auth_user_patch')
+    def test_users_not_auth_user_patch(self):
+        """Test that not_auth_user cannot read a user."""
+        token = self.get_user_token(self.regular_user)
+        data = {'groups':{self.business.id:{self.admin_group.id:True}}}
+        self.assertPermission('patch',self.user_url+f'{self.regular_user.id}/',[status.HTTP_403_FORBIDDEN,status.HTTP_401_UNAUTHORIZED],data=data,bearer_token=token)
+        print('auth user patch test PASSED')
+
+    @tag('not_auth','method','not_auth_user_delete')
+    def test_users_not_auth_user_delete(self):
+        """Test that not_auth_user cannot read a user."""
+        token = self.get_user_token(self.regular_user)
+        self.assertPermission('delete',self.user_url+f'{self.regular_user.id}/',[status.HTTP_403_FORBIDDEN,status.HTTP_401_UNAUTHORIZED],bearer_token=token)
+        print('auth user delete test PASSED')
+
     
-    def get_user_token(self, user):
-        """Helper method to get JWT token for a user."""
-        refresh = RefreshToken.for_user(user)
-        return str(refresh.access_token)
     
-    def test_retrieve_user_success(self):
-        """Test successful user retrieval."""
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.get_user_token(self.superuser)}')
-        
-        url = f'{self.user_list_url}{self.regular_user.id}/'
-        response = self.client.get(url)
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('data', response.data)
-    
-    def test_retrieve_user_unauthenticated(self):
-        """Test that unauthenticated users cannot retrieve users."""
-        url = f'{self.user_list_url}{self.regular_user.id}/'
-        response = self.client.get(url)
-        
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-    
+
+    @tag('auth','method','non_existing','non_existing_user_admin')
     def test_retrieve_nonexistent_user(self):
         """Test retrieving a non-existent user."""
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.get_user_token(self.superuser)}')
-        
-        url = f'{self.user_list_url}99999/'
-        response = self.client.get(url)
-        
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        token = self.get_user_token(self.auth_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        url = f'{self.user_url}99999/'
+        self.assertPermission(url=url,method='get',expected_status=status.HTTP_403_FORBIDDEN,bearer_token=token)
+
     
-    def test_update_user_success(self):
-        """Test successful user update."""
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.get_user_token(self.superuser)}')
-        
-        url = f'{self.user_list_url}{self.regular_user.id}/'
-        update_data = {
-            'name': 'Updated Name',
-            'last_name': 'Updated Last Name'
-        }
-        
-        response = self.client.patch(url, update_data, format='json')
-        
-        # Update might succeed or fail based on permissions
-        self.assertIn(response.status_code, [status.HTTP_200_OK, status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+    @tag('auth','method','non_existing','non_existing_user_super_admin')
+    def test_retrieve_nonexistent_user_superuser(self):
+        """Test retrieving a non-existent user."""
+        token = self.get_user_token(self.superuser)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        url = f'{self.user_url}99999/'
+        self.assertPermission(url=url, method='get',expected_status=status.HTTP_404_NOT_FOUND,bearer_token=token)
     
-    def test_update_user_invalid_data(self):
-        """Test user update with invalid data."""
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.get_user_token(self.superuser)}')
-        
-        url = f'{self.user_list_url}{self.regular_user.id}/'
-        invalid_data = {
-            'email': 'invalid-email-format'
-        }
-        
-        response = self.client.patch(url, invalid_data, format='json')
-        
-        # Should fail validation
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @tag('auth','permission_data','non_existing','non_existing_business')
+    def test_update_user_with_non_existing_business(self):
+        """Test updating user permissions for a non existing business"""
+        token = self.get_user_token(self.superuser)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        url = f'{self.user_url}{self.regular_user.id}/'
+        data = {'groups':{'8888':{self.admin_group.id:True}}}
+        self.assertPermission(url=url, method='patch', data=data, expected_status=status.HTTP_400_BAD_REQUEST)
     
-    def test_delete_user_success(self):
-        """Test successful user deletion."""
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.get_user_token(self.superuser)}')
-        
-        # Create a user to delete
-        user_to_delete = User.objects.create_user(
-            username='delete_test',
-            email='delete@test.com',
-            name='Delete',
-            last_name='Test',
-            password='deletepassword123'
-        )
-        
-        url = f'{self.user_list_url}{user_to_delete.id}/'
-        response = self.client.delete(url)
-        
-        # Delete might succeed or fail based on permissions
-        self.assertIn(response.status_code, [status.HTTP_200_OK, status.HTTP_403_FORBIDDEN])
-        
-        # If deletion was successful, verify user is deleted
-        if response.status_code == status.HTTP_200_OK:
-            self.assertFalse(User.objects.filter(id=user_to_delete.id).exists())
+
+    @tag('not_auth','permission_data','non_existing','non_existing_permission')
+    def test_update_user_with_invalid_permission(self):
+        """Test updating user permissions with non existing permission"""
+        token = self.get_user_token(self.superuser)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        url = f'{self.user_url}{self.regular_user.id}/'
+        data = {'permissions':{self.business.id:{'999':True}}}
+        self.assertPermission(url=url, method='patch', data=data, expected_status=status.HTTP_400_BAD_REQUEST)
+
+
+    @tag('not_auth','permission_data','non_existing','non_existing_group')
+    def test_update_user_with_invalid_group(self):
+        """Test updating user permissions with non existing group"""
+        token = self.get_user_token(self.superuser)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        url = f'{self.user_url}{self.regular_user.id}/'
+        data = {'groups':{self.business.id:{'999':True}}}
+        self.assertPermission(url=url, method='patch', data=data, expected_status=status.HTTP_400_BAD_REQUEST)
     
+
+    ############################################# HERE
+
+
+    @tag('not_auth','permission_data','non_existing','non_existing_user')
     def test_delete_nonexistent_user(self):
         """Test deleting a non-existent user."""
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.get_user_token(self.superuser)}')
+        token = self.get_user_token(self.superuser)
         
         url = f'{self.user_list_url}99999/'
         response = self.client.delete(url)
         
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertPermission(url=url,method='delete', expected_status=status.HTTP_404_NOT_FOUND, bearer_token=token)
     
+
+
+    @tag('not_auth','permission_data','superuser_delete_superuser')
     def test_delete_superuser_forbidden(self):
         """Test that superuser cannot be deleted (if protected)."""
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.get_user_token(self.superuser)}')
+        token = self.get_user_token(self.superuser)
         
-        url = f'{self.user_list_url}{self.superuser.id}/'
+        url = f'{self.user_url}{self.superuser.id}/'
         response = self.client.delete(url)
-        
         # Should either succeed or fail based on business logic
-        self.assertIn(response.status_code, [status.HTTP_200_OK, status.HTTP_403_FORBIDDEN, status.HTTP_400_BAD_REQUEST])
+        self.assertPermission(url=url,method='delete', expected_status=[status.HTTP_200_OK, status.HTTP_403_FORBIDDEN, status.HTTP_400_BAD_REQUEST],bearer_token=token)
 
 
 class TestJWTTokenEndpoints(BaseUserTestCase):
