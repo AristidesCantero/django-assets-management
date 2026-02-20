@@ -27,7 +27,4 @@ def block_forbidden_permissions(sender, instance, action, pk_set, **kwargs):
 
 @receiver(post_save, sender=User)
 def user_default_profile(sender, instance, created, **kwargs):
-    print("Se creo o modifico un usuario")
-    """
-    Asigna permisos y grupos predeterminados a un usuario al crearlo.
-    """
+    pass

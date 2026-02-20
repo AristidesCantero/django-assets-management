@@ -116,7 +116,7 @@ def defaultGroupsPermissionsProhibitions(apps, schema_editor):
                                 permiso = Permission.objects.get(codename = action+"_"+modelo)
                                 fgpermission.objects.update_or_create(group=grupo, permission=permiso) #obj, created = 
                             except:
-                                    print(f"Failed creation of prohibition {action+"_"+modelo} for group {gname} (app_labels)")
+                                    #print(f"Failed creation of prohibition {action+"_"+modelo} for group {gname} (app_labels)")
                                     continue
                 
             for key, modelo in data['content_types'].items():
@@ -129,7 +129,7 @@ def defaultGroupsPermissionsProhibitions(apps, schema_editor):
                             permiso = Permission.objects.get(codename = action+"_"+key)
                             fgpermission.objects.update_or_create(group=grupo, permission=permiso)
                         except:
-                            print(f"Failed creation of prohibition {action+"_"+key} for group {gname} (content_types)")
+                            #print(f"Failed creation of prohibition {action+"_"+key} for group {gname} (content_types)")
                             continue
                         
                 
