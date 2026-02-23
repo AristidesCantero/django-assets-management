@@ -66,6 +66,9 @@ class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
                     return {"user": consulted_user, "exists": True, 'superuser':True}
                 return {"user": None, "exists": True}
             
+            if logged_user.is_superuser:
+                return {"user": consulted_user, "exists": True}
+            
             
             permission = self.get_permission(method=request.method, accessed_model=logged_user)
 

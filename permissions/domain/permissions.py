@@ -27,7 +27,8 @@ def verify_unidentified_or_superadmin(request, consulted_user_id=None):
             if not user.is_authenticated or not user:
                 return False
             if user.is_superuser:
-                if User.objects.get(id=consulted_user_id).is_superuser and not request.method =='GET':
+                consulted_user_is_superuser = User.objects.filter(id=consulted_user_id, is_superuser=True).first()
+                if consulted_user_is_superuser and not request.method =='GET':
                         return False
                 return True
             return None
@@ -93,8 +94,8 @@ class permissionsToCheckUsers(DjangoModelPermissions):
     @handle_early_return
     def has_permission(self, request, view):
 
-        path_has_primary = path_has_primary_key(request.path)      
-
+        path_has_primary = path_has_primary_key(request.path)    
+          
         if path_has_primary:
             verify_unidentified_or_superadmin(request,consulted_user_id=path_has_primary)
             exists, user_value = user_can_check_user(request=request, consulted_user_id=path_has_primary) 
