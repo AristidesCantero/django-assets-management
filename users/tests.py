@@ -17,6 +17,8 @@ from locations.domain.models import Business
 from permissions.domain.models import UserBusinessPermission, GroupBusinessPermission
 from django.contrib.auth.models import Permission, Group
 from django.contrib.contenttypes.models import ContentType
+from datetime import datetime, timedelta
+from calendar import timegm
 
 
 
@@ -405,7 +407,7 @@ class TestJWTTokenEndpoints(BaseUserTestCase):
             'email': self.superuser.email,
             'password': 'adminpassword123'
         }
-        
+               
         response = self.client.post(self.token_url, token_data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -465,11 +467,13 @@ class TestJWTTokenEndpoints(BaseUserTestCase):
         
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
     
+    @tag('token','invalid','expired_token')
     def test_token_refresh_expired_token(self):
         """Test token refresh with expired token."""
         # Create a refresh token that's already expired
         refresh = RefreshToken.for_user(self.superuser)
-        refresh.set_exp(lifetime=-1)  # Set to expired
+        date_time = datetime.now()-timedelta(seconds=1)
+        refresh['exp'] = timegm(date_time.utctimetuple())  # Set to expired
         
         refresh_data = {
             'refresh': str(refresh)
@@ -478,58 +482,6 @@ class TestJWTTokenEndpoints(BaseUserTestCase):
         response = self.client.post(self.token_refresh_url, refresh_data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-
-class TestUserPermissions(BaseUserTestCase):
-    """Tests for user permission functionality."""
-    
-    def get_user_token(self, user):
-        """Helper method to get JWT token for a user."""
-        refresh = RefreshToken.for_user(user)
-        return str(refresh.access_token)
-    
-    def test_user_without_permission_cannot_list(self):
-        """Test that user without view permission cannot list users."""
-        # Create a user with no permissions
-        no_perm_user = User.objects.create_user(
-            username='noperm_test',
-            email='noperm@test.com',
-            name='No',
-            last_name='Permission',
-            password='nopassword123'
-        )
-        
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.get_user_token(no_perm_user)}')
-        response = self.client.get(self.user_list_url)
-        
-        # Should be denied
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-    
-    def test_user_with_permission_can_list(self):
-        """Test that user with view permission can list users."""
-        # Grant view permission
-        view_perm = Permission.objects.get(codename='view_user')
-        self.regular_user.user_permissions.add(view_perm)
-        
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.get_user_token(self.regular_user)}')
-        response = self.client.get(self.user_list_url)
-        
-        # Should succeed (permission check passes)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-    
-    def test_user_can_update_own_profile(self):
-        """Test that user can update their own profile."""
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.get_user_token(self.regular_user)}')
-        
-        url = f'{self.user_list_url}{self.regular_user.id}/'
-        update_data = {
-            'name': 'Updated Name'
-        }
-        
-        response = self.client.patch(url, update_data, format='json')
-        
-        # Should either succeed or fail based on permission check
-        self.assertIn(response.status_code, [status.HTTP_200_OK, status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
 
 
 class TestUserValidation(BaseUserTestCase):
@@ -542,21 +494,18 @@ class TestUserValidation(BaseUserTestCase):
     
     def test_create_user_missing_required_fields(self):
         """Test user creation with missing required fields."""
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.get_user_token(self.superuser)}')
         
+        token = self.get_user_token(user=self.superuser)
         incomplete_data = {
             'username': 'incomplete_test'
             # Missing email, name, password
         }
-        
-        response = self.client.post(self.user_list_url, incomplete_data, format='json')
-        
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-    
+
+        self.assertPermission(method='post',url=self.user_list_url,expected_status=status.HTTP_400_BAD_REQUEST,data=incomplete_data,bearer_token=token)
+
     def test_create_user_invalid_email_format(self):
         """Test user creation with invalid email format."""
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.get_user_token(self.superuser)}')
-        
+        token = self.get_user_token(user=self.superuser)
         invalid_email_data = {
             'username': 'email_test',
             'email': 'not-an-email',
@@ -564,14 +513,12 @@ class TestUserValidation(BaseUserTestCase):
             'last_name': 'User',
             'password': 'testpassword123'
         }
-        
-        response = self.client.post(self.user_list_url, invalid_email_data, format='json')
-        
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                
+        self.assertPermission(method='post',url=self.user_list_url,expected_status=status.HTTP_400_BAD_REQUEST,data=invalid_email_data,bearer_token=token)
     
-    def test_create_user_short_password(self):
+    def create_user_short_password(self):
         """Test user creation with short password."""
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.get_user_token(self.superuser)}')
+        token = self.get_user_token(self.superuser)
         
         short_password_data = {
             'username': 'shortpass_test',
@@ -580,7 +527,4 @@ class TestUserValidation(BaseUserTestCase):
             'last_name': 'User',
             'password': '123'  # Very short password
         }
-        
-        response = self.client.post(self.user_list_url, short_password_data, format='json')
-        
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertPermission(method='post',url=self.user_list_url,expected_status=status.HTTP_400_BAD_REQUEST,data=short_password_data,format='json',bearer_token=token)

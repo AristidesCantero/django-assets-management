@@ -35,6 +35,8 @@ class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
         return group.id in ubp
 
     def user_can_access_model(self, request, accessed_model):
+        """Returns a empty list if logged user cannot access, otherwise returns a lsit with the user"""
+        
         user = self.get_user(request)
         if not user:
             return []
@@ -42,7 +44,7 @@ class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
         if user.is_superuser:
             return [user]
 
-        permission = self.get_permission(method=request.method, accessed_model=accessed_model._meta.model_name)
+        permission = self.get_permission(method=request.method, accessed_model=accessed_model)
         business_where_user_belongs = self.get_queryset().businesses_where_user_belongs(user_id=user.id)
 
         if not business_where_user_belongs or not permission:
@@ -55,10 +57,15 @@ class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
         return [user]
 
     def user_is_allowed_to_check_user(self, request, consulted_user_id: str):
+            """Returns a dict that returns True in exists if consulted user exists and is in a business where the logged user belongs, in user returns a 
+            User objects with the data of the consulted if logged user has permission to see this user, superadmins ignore all permissions except modify or delete
+            other superusers"""
+        
+        
             logged_user = request.user
             consulted_user = self.filter(pk=consulted_user_id).first()
             
-            if not consulted_user:
+            if not consulted_user: 
                 return {"user": None, "exists": False}
             
             if consulted_user.is_superuser:

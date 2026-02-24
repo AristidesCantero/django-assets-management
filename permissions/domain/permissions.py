@@ -22,16 +22,28 @@ method_to_action = {
 }
 
 @returns_from_inner
-def verify_unidentified_or_superadmin(request, consulted_user_id=None):
+def verify_unidentified_or_superadmin_check_user(request, consulted_user_id=None):
             user = request.user
             if not user.is_authenticated or not user:
                 return False
             if user.is_superuser:
-                consulted_user_is_superuser = User.objects.filter(id=consulted_user_id, is_superuser=True).first()
-                if consulted_user_is_superuser and not request.method =='GET':
-                        return False
+                if consulted_user_id:
+                    consulted_user_is_superuser = User.objects.filter(id=consulted_user_id, is_superuser=True).first()
+                    if consulted_user_is_superuser and not request.method =='GET':
+                            return False
                 return True
             return None
+        
+        
+@returns_from_inner
+def verify_unidentified_or_superadmin_models(request):
+            user = request.user
+            if not user.is_authenticated or not user:
+                return False
+            if user.is_superuser:
+                return True
+            return None
+    
 
 def check_if_user_has_permission(request=None):
         if request is None:
@@ -65,8 +77,7 @@ def user_can_check_user(request, consulted_user_id: str) -> list[bool,bool]:
     searched_user_exists = user_value.get("exists", False)
     user_value = user_value.get("user", None)  
     
-    returned_list = [searched_user_exists, user_value]        
-    return returned_list
+    return [searched_user_exists, user_value]        
 
 def path_has_primary_key(path: str) -> bool:
     segments = path.strip('/').split('/')
@@ -93,24 +104,23 @@ class isManager(BasePermission):
 class permissionsToCheckUsers(DjangoModelPermissions):
     @handle_early_return
     def has_permission(self, request, view):
-
-        path_has_primary = path_has_primary_key(request.path)    
+        path_primary_key = path_has_primary_key(request.path)    
           
-        if path_has_primary:
-            verify_unidentified_or_superadmin(request,consulted_user_id=path_has_primary)
-            exists, user_value = user_can_check_user(request=request, consulted_user_id=path_has_primary) 
+        if path_primary_key:
+            verify_unidentified_or_superadmin_check_user(request,consulted_user_id=path_primary_key)
+            exists, user_value = user_can_check_user(request=request, consulted_user_id=path_primary_key) 
                         
             if not user_value:
                 return False
         
-        verify_unidentified_or_superadmin(request)
+        verify_unidentified_or_superadmin_check_user(request)
             
         return check_if_user_has_permission(request=request)
 
 
 class permissionsToCheckGroups(DjangoModelPermissions):
     def has_permission(self, request, view):
-        verify_unidentified_or_superadmin(request)
+        verify_unidentified_or_superadmin_check_user(request)
         return False
         
         #permission_required = f'{method_to_action[request.method]}_{Group._meta.model_name}'
@@ -118,6 +128,7 @@ class permissionsToCheckGroups(DjangoModelPermissions):
 
 
 class permissionToCheckModel(DjangoModelPermissions):
+    @handle_early_return
     def has_permission(self, request, view):
-        verify_unidentified_or_superadmin(request)
+        verify_unidentified_or_superadmin_check_user(request)
         return checkIfUserHasPermissionOverModel(request=request, view=view)
