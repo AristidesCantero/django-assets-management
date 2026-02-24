@@ -27,6 +27,11 @@ class Business(BaseModel):
     
     
 class Headquarters(BaseModel):
+    
+    class Meta:
+        unique_together = ('business_key','name')
+    
+    
     name = models.CharField(max_length=100)
     address = models.CharField(max_length=255)
     phone = models.CharField(max_length=20)

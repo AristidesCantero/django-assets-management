@@ -43,16 +43,17 @@ def validate_nit(instance):
 
 
 def validate_utr(instance):
-    utr_pattern = r'^[A-Z0-9]{10}$'  # Example pattern: 10 alphanumeric characters
-    if not re.match(utr_pattern, instance):
+    utr_pattern = r'^[a-zA-Z0-9]{10}$'  # Example pattern: 10 alphanumeric characters
+
+    if not re.fullmatch(utr_pattern, instance):
         raise serializers.ValidationError("Invalid UTR format. Expected format: 10 alphanumeric characters.")
     
     return instance
 
 
 def validate_name(instance):
-    name_pattern = r'^[a-zA-Z0-9.\- ]+$'
+    name_pattern = r'^[a-zA-Z.\- ]+$'
     if (not re.fullmatch(name_pattern, instance) or len(instance) > 255 or len(instance) < 3):
-        raise serializers.ValidationError("Invalid name, the name can only have numbers, letters and '-' and the lenght should be more than 3 characters and less than 255")
+        raise serializers.ValidationError("Invalid name, the name can only have letters and '-' and the lenght should be more than 3 characters and less than 255")
     
     return instance

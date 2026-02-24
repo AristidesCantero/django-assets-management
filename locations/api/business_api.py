@@ -52,7 +52,9 @@ class BusinessListAPIView(ListCreateAPIView):
 
 class BusinessAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = BusinessSerializer
-    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [permissionToCheckModel]
+    allowed_methods = ['get','patch','delete']
 
     def get_queryset(self, pk=None):
         return self.serializer_class.Meta.model.objects.filter(id=pk).first()
@@ -70,7 +72,7 @@ class BusinessAPIView(RetrieveUpdateDestroyAPIView):
         
     
 
-    def put(self, request, pk=None):
+    def patch(self, request, pk):
         business = self.get_queryset(pk=pk)
         response_data = {}
         if business:
@@ -86,7 +88,7 @@ class BusinessAPIView(RetrieveUpdateDestroyAPIView):
         return Response(response_data, status=status.HTTP_404_NOT_FOUND)
     
 
-    def delete(self, request, pk=None):
+    def delete(self, request, pk):
         business = self.get_queryset(pk=pk)
         response_data = {}
 

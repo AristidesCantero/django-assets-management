@@ -9,6 +9,10 @@ class BusinessSerializer(serializers.ModelSerializer):
     class Meta:
         model = Business
         fields = '__all__'
+        
+    name = serializers.CharField(required=False)
+    tin = serializers.CharField(required=False)
+    utr = serializers.CharField(required=False)
 
     def update(self, instance, validated_data):
         return super().update(instance, validated_data)
@@ -26,10 +30,10 @@ class BusinessSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         return {
-            'id': instance['id'],
-            'name': instance['name'],
-            'tin': instance['tin'].upper(),
-            'utr': instance['utr'].upper()
+            'id': instance.id,
+            'name': instance.name,
+            'tin': instance.tin.upper(),
+            'utr': instance.utr.upper()
         }
 
 
