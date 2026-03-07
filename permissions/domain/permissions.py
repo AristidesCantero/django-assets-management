@@ -7,6 +7,7 @@ from permissions.domain.decorators.user_decorator import *
 from django.db.models import Model
 from django.apps import apps
 
+
 #objective permissions
 #-admin permission with limitations defined by another admin or the superadmin
 #-manager permission with limitations defined by an admin
@@ -65,8 +66,6 @@ def checkIfUserHasPermissionOverModel(request=None, view=None):
 
     if not model_class:
         return False
-    
-    permission_required = f'{method_to_action[request.method]}_{model_class._meta.model_name}'
     
     users_allowed = User.objects.user_can_access_model(request=request, accessed_model=model_class)
     return True if users_allowed else False
@@ -132,3 +131,9 @@ class permissionToCheckModel(DjangoModelPermissions):
     def has_permission(self, request, view):
         verify_unidentified_or_superadmin_check_user(request)
         return checkIfUserHasPermissionOverModel(request=request, view=view)
+    
+    
+    
+
+
+ 
