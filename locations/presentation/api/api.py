@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework import status
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication, BasicAuthentication
+from permissions.domain.authentication import CookieJWTAuthentication
+from permissions.domain.permissions import permissionToCheckModel
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from locations.domain.models import Headquarters, Business, InternalLocation, UserBusinessMember
 from locations.presentation.serializers import *
@@ -54,6 +56,8 @@ def business_detail_api_view(request, pk=None):
 class BusinessListAPIView(generics.ListCreateAPIView):
     serializer_class = BusinessListSerializer
     queryset = Business.objects.all()
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = []
     #authentication_classes = [TokenAuthentication, SessionAuthentication, BasicAuthentication]
     #permission_classes = [IsAuthenticated]
 

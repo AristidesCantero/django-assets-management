@@ -6,12 +6,13 @@ from locations.models import Business
 from locations.serializers.business_serializer import BusinessListSerializer, BusinessSerializer
 from permissions.domain.permissions import permissionToCheckModel
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from permissions.domain.authentication import CookieJWTAuthentication
 from users.querysets import BusinessQuerySet
 
 
 class BusinessListAPIView(ListCreateAPIView):
     serializer_class = BusinessListSerializer
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = [CookieJWTAuthentication]
     permission_classes = [permissionToCheckModel]
     allowed_methods = ["GET", "POST"]
 
@@ -52,7 +53,7 @@ class BusinessListAPIView(ListCreateAPIView):
 
 class BusinessAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = BusinessSerializer
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = [CookieJWTAuthentication]
     permission_classes = [permissionToCheckModel]
     allowed_methods = ['get','patch','delete']
 

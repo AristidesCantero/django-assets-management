@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from locations.serializers.headquarter_serializer import HeadquartersListSerializer, HeadquartersSerializer
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from permissions.domain.authentication import CookieJWTAuthentication
 from permissions.domain.permissions import permissionToCheckModel
 from locations.querysets import HeadquartersQuerySet
 from locations.models import Headquarters
@@ -11,7 +12,7 @@ from locations.models import Headquarters
 
 class HeadquarterAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = HeadquartersSerializer
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = [CookieJWTAuthentication]
     permission_classes = [permissionToCheckModel]
     allowed_methods = ["GET", "POST"]
 
@@ -35,8 +36,19 @@ class HeadquarterAPIView(RetrieveUpdateDestroyAPIView):
         except Headquarters.DoesNotExist:
             return Response({'detail': 'Headquarter has not been found.'}, status=status.HTTP_404_NOT_FOUND)
 
-    def patch(self, request, *args, **kwargs):
-        return super().patch(request, *args, **kwargs)
+    def patch(self, request, pk):
+        try:
+            headquarter = self.get_queryset(request=request, pk=pk)
+            hq_serializer = self.serializer_class(headquarter,data=request.data)
+            if hq_serializer.is_valid():
+                hq_serializer.save()
+                response_data = { 'data': hq_serializer.data, 'message': 'Sede actualizada correctamente' }
+                return Response(response_data, status=status.HTTP_200_OK)
+            response_data = { 'errors': hq_serializer.errors, 'message' : 'Error al actualizar la sede, información inválida' }
+            return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
+        except Headquarters.DoesNotExist:
+            return Response({'detail': 'Headquarter has not been found.'}, status=status.HTTP_404_NOT_FOUND)
+
     
     def delete(self, request):
         pass
@@ -46,7 +58,7 @@ class HeadquarterAPIView(RetrieveUpdateDestroyAPIView):
 
 class HeadquarterListAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = HeadquartersListSerializer
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = [CookieJWTAuthentication]
     permission_classes = [permissionToCheckModel]
     allowed_methods = ["GET", "POST"]
 

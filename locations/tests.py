@@ -28,9 +28,15 @@ class BaseLocationTestCase(APITestCase):
         refresh = RefreshToken.for_user(user)
         return str(refresh.access_token)
     
+    @classmethod
+    def load_cookie_token(self, bearer_token):
+        self.client.cookies.load({'access_token':f'{bearer_token}'})
+    
+    
     def assertPermission(self, method, url, expected_status, data=None, bearer_token="", content_type='application/json'):
         """Helper to test permissions for a specific method"""
-        headers = { "Authorization": f'Bearer {bearer_token}',  "Content-Type": content_type }
+        headers = { "Content-Type": content_type }
+        self.client.cookies.load({'access_token':f'{bearer_token}'})
         if method == 'get':
             response = self.client.get(url, headers=headers)
         elif method == 'post':
@@ -82,7 +88,7 @@ class BaseLocationTestCase(APITestCase):
         context = self.create_permissions_dict(business_id=business_id, permissions_ids=permissions_ids)
         url = f"/users/usuario/{user_id}/"
         bearer_token = self.get_user_token(user=access_user)
-
+        self.load_cookie_token(bearer_token=bearer_token)
         return self.client.patch(path=url, data=context, headers={ "Authorization": f'Bearer {bearer_token}',  "Content-Type": 'application/json'}, format='json')
     
     @classmethod
@@ -90,6 +96,7 @@ class BaseLocationTestCase(APITestCase):
         context = self.create_groups_dict(business_id=business_id, groups_ids=groups_ids)
         url = f"/users/usuario/{user_id}/"
         bearer_token = self.get_user_token(access_user)
+        self.load_cookie_token(bearer_token=bearer_token)
         return self.client.patch(path=url, data=context, headers={ "Authorization": f'Bearer {bearer_token}',  "Content-Type": 'application/json'}, format='json')
 
     @classmethod
@@ -103,7 +110,7 @@ class BaseLocationTestCase(APITestCase):
             username='admin_location_test',
             email='admin_location@test.com',
             name='Admin',
-            last_name='Location',
+            last_name='Super',
             password='adminpassword123'
         )
 
@@ -401,34 +408,34 @@ class TestBusinessIncorrectAPICalls(BaseLocationTestCase):
 class TestSuperUserHeadquarterAPIView(BaseLocationTestCase):
     """Tests for Headquarter API with superuser access."""
        
-    @tag('headquarter', 'superuser', 'list_get')
+    @tag('headquarter', 'superuser', 'headquarter_list_get_superuser')
     def test_list_headquarter_superuser_get(self):
         """Test that superuser can list all headquarters."""
         token = self.get_user_token(self.superuser)
         self.assertPermission('get', self.headquarter_list_url, status.HTTP_200_OK, bearer_token=token)
         print('superuser headquarter list get test passed')
 
-    @tag('headquarter', 'superuser', 'list_post')
+    @tag('headquarter', 'superuser', 'headquarter_list_post_superuser')
     def test_list_headquarter_superuser_post(self):
         """Test that superuser can create a headquarter."""
         token = self.get_user_token(self.superuser)
         new_headquarter = {
             'name': 'New Test Headquarter',
             'address': 'New Address 456',
-            'phone': '+9876543210',
+            'phone': '3006543210',
             'business_key': self.business.id
         }
-        self.assertPermission('post', self.headquarter_list_url, status.HTTP_201_CREATED, new_headquarter, bearer_token=token)
+        self.assertPermission('post', self.headquarter_list_url, status.HTTP_201_CREATED, data=new_headquarter, bearer_token=token)
         print('superuser headquarter list post test passed')
 
-    @tag('headquarter', 'superuser', 'detail_get')
+    @tag('headquarter', 'superuser', 'headquarter_detail_get_superuser')
     def test_headquarter_superuser_get(self):
         """Test that superuser can retrieve a headquarter."""
         token = self.get_user_token(self.superuser)
         self.assertPermission('get', f'{self.headquarter_detail_url}{self.headquarter.id}/', status.HTTP_200_OK, bearer_token=token)
         print('superuser headquarter get test passed')
 
-    @tag('headquarter', 'superuser', 'detail_patch')
+    @tag('headquarter', 'superuser', 'headquarter_detail_patch_superuser')
     def test_headquarter_superuser_patch(self):
         """Test that superuser can update a headquarter."""
         token = self.get_user_token(self.superuser)
@@ -449,6 +456,9 @@ class TestAuthorizedUnauthorizedHeadquarterAPIView(BaseLocationTestCase):
         cls.set_permissions(access_user=cls.superuser, business_id=cls.business.id, permissions_ids=permissions, user_id=cls.auth_user.id)
         cls.set_groups(access_user=cls.superuser, business_id=cls.business.id, groups_ids=[cls.admin_group.id], user_id=cls.auth_user.id)
         cls.set_groups(access_user=cls.superuser, business_id=cls.business.id, groups_ids=[cls.manager_group.id], user_id=cls.regular_user.id)
+        #print(UserBusinessPermission.objects.filter(user_key=cls.auth_user.id))
+        #print(GroupBusinessPermission.objects.filter(user_key=cls.auth_user.id))
+        #print(GroupBusinessPermission.objects.filter(user_key=cls.regular_user.id))
         return database_setup
 
     @tag('headquarter', 'auth', 'list_get')
@@ -654,6 +664,9 @@ class TestAuthorizedUnauthorizedInternalLocationAPIView(BaseLocationTestCase):
         cls.set_permissions(access_user=cls.superuser, business_id=cls.business.id, permissions_ids=permissions, user_id=cls.auth_user.id)
         cls.set_groups(access_user=cls.superuser, business_id=cls.business.id, groups_ids=[cls.admin_group.id], user_id=cls.auth_user.id)
         cls.set_groups(access_user=cls.superuser, business_id=cls.business.id, groups_ids=[cls.manager_group.id], user_id=cls.regular_user.id)
+        #print(UserBusinessPermission.objects.filter(user_key=cls.auth_user.id,business_key=cls.business.id))
+        #print(GroupBusinessPermission.objects.filter(user_key=cls.auth_user.id,business_key=cls.business.id))
+        #print(GroupBusinessPermission.objects.filter(user_key=cls.regular_user.id))
         return database_setup
 
     @tag('internal_location', 'auth', 'list_get')

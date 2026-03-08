@@ -8,16 +8,18 @@ from users.models import User
 def validate_business_key_ext(instance, context, model=None):
         user = context["request"].user
         request = context["request"]
+        business = Business.objects.filter(id=instance).first()
 
-        if not Business.objects.filter(pk=instance).exists():
+        if not business:
             raise ValidationError("Business does not exist")
 
+        if user.is_superuser:
+            return business
         allowed_business = User.objects.businesses_allowed_to_user(request=request,model=model)
 
         if not str(instance) in allowed_business:
             raise ValidationError("User does not have permission over business: "+str(instance))
             
-        business = Business.objects.get(id=instance)
         return  business
     
 
@@ -37,10 +39,10 @@ class HeadquartersSerializer(serializers.Serializer):
 
 
     id = serializers.IntegerField(read_only=True)
-    name = serializers.CharField(max_length=100, required=True)
-    address = serializers.CharField(max_length=255, required=True)
-    phone = serializers.CharField(max_length=15, required=True)
-    business_key = serializers.IntegerField(required=True)
+    name = serializers.CharField(max_length=100,required=False)
+    address = serializers.CharField(max_length=255,required=False)
+    phone = serializers.CharField(max_length=15,required=False)
+    business_key = serializers.IntegerField(required=False)
 
     def validate_business_key(self, instance):
         return validate_business_key_ext(instance=instance, context=self.context, model = Headquarters).id

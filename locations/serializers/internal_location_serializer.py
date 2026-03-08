@@ -4,32 +4,31 @@ from locations.models import InternalLocation, Headquarters, Business
 from users.models import User
 
 
-def validate_headquarters_key_ext(instance, context, model=None):
+def validate_headquarters_key_ext(instance, context, model=None)-> str:
         if not instance:
             raise serializers.ValidationError("Headquarters key is required.")
-        if not Headquarters.objects.filter(id=instance).exists():
+        if not Headquarters.objects.filter(pk=instance).first():
             raise serializers.ValidationError("Headquarters does not exist.")
         
         user = context["request"].user
         request = context["request"]
 
+        headquarter = []
         try:
             headquarter = Headquarters.objects.get(id=instance)
         except Headquarters.DoesNotExist:
-             return []
+             raise ValidationError(f'Headquarter with id {instance} does not exists')
              
         business = headquarter.get_business()
 
-
         allowed_business = User.objects.businesses_allowed_to_user(request=request,model=model)
-
-
-
+        allowed_business = list(map(str,allowed_business))
+        
         if not str(business.id) in allowed_business:
             raise ValidationError(f"User does not have permission over headquarters {headquarter.id} of business: {business.id}")
+
             
-        business = Business.objects.get(id=instance)
-        return  business
+        return headquarter
 
 
 class InternalLocationSerializer(serializers.Serializer):
@@ -44,12 +43,9 @@ class InternalLocationSerializer(serializers.Serializer):
 
 
     def update(self, instance, validated_data):
-        print(validated_data['headquarters_key'])
         instance.name = validated_data.get('name',instance.name)
         instance.floor = validated_data.get('floor',instance.floor)
         instance.room_number = validated_data.get('room_number',instance.room_number)
-        headquarters_key =  validated_data.get('headquarters_key',instance.headquarters_key)
-        instance.headquarters_key = Headquarters.objects.get(pk=headquarters_key)
         updated_internal_location = instance
         instance.save()
         return updated_internal_location
@@ -78,8 +74,8 @@ class InternalLocationSerializer(serializers.Serializer):
 
 
     def validate_headquarters_key(self, instance):
-         return validate_headquarters_key_ext(instance=instance, context=self.context, model = Headquarters).id
-    
+        validated_hq_key = validate_headquarters_key_ext(instance=instance.id, context=self.context, model = InternalLocation)
+        return validated_hq_key
 
     def to_representation(self, instance):
         return {
@@ -105,13 +101,12 @@ class InternalLocationListSerializer(serializers.ModelSerializer):
     room_number = serializers.CharField(max_length=10,required=True)
 
     def create(self, validated_data):
-        validated_data['headquarters_key'] = Headquarters.objects.get(id=validated_data['headquarters_key'])
-        
         return super().create(validated_data=validated_data)
     
 
     def validate_headquarters_key(self, instance):
-         return validate_headquarters_key_ext(instance=instance, context=self.context, model = Headquarters).id
+        validated_hq_key = validate_headquarters_key_ext(instance=instance.id, context=self.context, model = InternalLocation)
+        return validated_hq_key
     
 
     def to_representation(self, instance):

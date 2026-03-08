@@ -3,6 +3,7 @@ from rest_framework.generics import *
 from rest_framework.response import Response
 from permissions.domain.permissions import permissionToCheckModel
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from permissions.domain.authentication import CookieJWTAuthentication
 from locations.serializers.internal_location_serializer import InternalLocationSerializer, InternalLocationListSerializer
 from locations.querysets import InternalLocationQuerySet
 from locations.models import InternalLocation
@@ -14,7 +15,7 @@ from locations.models import InternalLocation
 class InternalLocationAPIView(ListCreateAPIView):
     serializer_class = InternalLocationSerializer
     permission_classes = [permissionToCheckModel]
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = [CookieJWTAuthentication]
     allowed_methods = ["GET", "PATCH", "DELETE"]
 
     def get_queryset(self,request, pk=None):
@@ -63,7 +64,7 @@ class InternalLocationAPIView(ListCreateAPIView):
 class InternalLocationListAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = InternalLocationListSerializer
     permission_classes = [permissionToCheckModel]
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = [CookieJWTAuthentication]
     allowed_methods = ["GET", "POST"]
 
 
@@ -75,12 +76,12 @@ class InternalLocationListAPIView(RetrieveUpdateDestroyAPIView):
         dictionary = self.get_queryset(request=request)
         new_internal_locations = {}
         if dictionary.keys():
-            for business in dictionary.keys():
-                new_internal_locations[business] = {}
-                for headquarter in dictionary[business].keys():
-                    internal_locations = dictionary[business][headquarter]
+            for business_key in dictionary.keys():
+                new_internal_locations[business_key] = {}
+                for headquarter in dictionary[business_key].keys():
+                    internal_locations = dictionary[business_key][headquarter]
                     new_instance = self.serializer_class(internal_locations, many=True).data
-                    new_internal_locations[business][headquarter] = new_instance if internal_locations else []
+                    new_internal_locations[business_key][headquarter] = new_instance if internal_locations else []
 
 
         context = {

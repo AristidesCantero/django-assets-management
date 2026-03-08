@@ -1,6 +1,7 @@
 from django.db import models
 from django.apps import apps
 from users.querysets import UserQuerySet
+from users.domain.models import User
 
 method_to_action = {
     'GET': 'view',
@@ -12,7 +13,8 @@ method_to_action = {
 
 
 def get_user_headquarters(self, request) -> dict:
-          businesses_allowed = UserQuerySet().businesses_allowed_to_user(request=request)
+          user = request.user
+          businesses_allowed = User.objects.businesses_allowed_to_user(request=request)
           headquarters_by_business = {}
           for business_id in businesses_allowed:
                headquarters_by_business[business_id] = self.get_headquarters_by_business(business_id=business_id)
@@ -24,7 +26,7 @@ def get_user_headquarters(self, request) -> dict:
 
 class HeadquartersQuerySet(models.QuerySet):
     def get_user_headquarters(self, request, dictionary=False) -> dict:
-          businesses_allowed = UserQuerySet().businesses_allowed_to_user(request=request)
+          businesses_allowed = User.objects.businesses_allowed_to_user(request=request)
           headquarters_by_business = {}
           for business_id in businesses_allowed:
                headquarters_by_business[business_id] = self.get_headquarters_by_business(business_id=business_id, dictionary=dictionary)
@@ -45,7 +47,7 @@ class HeadquartersQuerySet(models.QuerySet):
 
     def headquarter_user_has_permission(self, request, pk) -> dict:
         Headquarters = apps.get_model('locations','Headquarters')
-        headquarter = Headquarters.objects.get(pk=pk)
+        headquarter = Headquarters.objects.filter(pk=pk).first()
         user = request.user
 
         if not headquarter:
@@ -61,7 +63,9 @@ class HeadquartersQuerySet(models.QuerySet):
         business = headquarter.get_business()
         permission_required = f"{method_to_action[request.method]}_{Headquarters._meta.model_name}"
         Permission = apps.get_model('auth', 'Permission')
-        permission = Permission.objects.get(codename=permission_required)
+        permission = Permission.objects.filter(codename=permission_required).first()
+        if not permission:
+             return {"hq":None, "exists":True}
         user_has_perm = UserQuerySet().businesses_where_user_has_userpermission(user=user,business=business,perm=permission)
 
         if not user_has_perm:
