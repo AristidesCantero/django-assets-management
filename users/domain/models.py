@@ -24,9 +24,9 @@ class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
         return user
         
     def get_permission(self, method, accessed_model):
-        required_permission = f'{method_to_action[method]}_{accessed_model._meta.model_name}'
+        required_permission = f'{method_to_action[method]}_{accessed_model}'
         Permission = apps.get_model('auth', 'Permission')
-        permission = Permission.objects.get(codename=required_permission)
+        permission = Permission.objects.filter(codename=required_permission).first()
         return permission
 
     def user_belongs_to_a_group(self, user, group):
@@ -35,7 +35,7 @@ class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
         return group.id in ubp
 
     def user_can_access_model(self, request, accessed_model):
-        """Returns a empty list if logged user cannot access, otherwise returns a lsit with the user"""
+        """Returns a empty list if logged user cannot access, otherwise returns a list with the user"""
         
         user = self.get_user(request)
         if not user:
@@ -44,7 +44,7 @@ class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
         if user.is_superuser:
             return [user]
 
-        permission = self.get_permission(method=request.method, accessed_model=accessed_model)
+        permission = self.get_permission(method=request.method, accessed_model=accessed_model._meta.model_name)
         business_where_user_belongs = self.get_queryset().businesses_where_user_belongs(user_id=user.id)
 
         if not business_where_user_belongs or not permission:
@@ -99,25 +99,25 @@ class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
             
             return {"user": consulted_user, "exists": True}
 
-    def businesses_allowed_to_user(self, request, model=None) -> list:
+    def businesses_allowed_to_user(self, request, model=None) -> list[str]:
         user = request.user
 
         if user.is_superuser:
             Business = apps.get_model('locations', 'Business')
             businesses = Business.objects.all()
-            return [b.id for b in businesses]
+            return [str(b.id) for b in businesses]
 
         if not user.is_authenticated or not user:
             return []
-
+        
         allowed_businesses = self.businesses_where_user_has_user_and_grouppermission_on_model(user=user, request=request, model=model)
         return allowed_businesses
 
-    def businesses_where_user_has_user_and_grouppermission_on_model(self, user, request, model=None) -> list:
+    def businesses_where_user_has_user_and_grouppermission_on_model(self, user, request, model=None) -> list[str]:
             
             model = user if not model else model
 
-            permission = self.get_permission(method=request.method, accessed_model=model)
+            permission = self.get_permission(method=request.method, accessed_model=model._meta.model_name)
             if not permission: 
                 return []
             
@@ -136,7 +136,7 @@ class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
                 for b, g in business_with_groups_user_belongs:
                     if g not in groups_not_allowed:
                         allowed_businesses.append(b)
-
+            
             # combine both lists without repeat / are the ids of the allowed businesses
             allowed_businesses = set(allowed_businesses + business_user_has_perm)
 

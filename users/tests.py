@@ -31,9 +31,14 @@ class BaseUserTestCase(APITestCase):
         refresh = RefreshToken.for_user(user)
         return str(refresh.access_token)
     
+    @classmethod
+    def load_cookie_token(self, bearer_token):
+        self.client.cookies.load({'access_token':f'{bearer_token}'})
+    
     def assertPermission(self, method, url, expected_status, data=None, bearer_token="", content_type='application/json'):
         """Helper to test permissions for a specific method"""
-        headers = { "Authorization": f'Bearer {bearer_token}',  "Content-Type": content_type }
+        headers = {  "Content-Type": content_type}
+        self.load_cookie_token(bearer_token=bearer_token)
         if method == 'get':
             response = self.client.get(url,headers=headers)
         elif method == 'post':
@@ -45,7 +50,7 @@ class BaseUserTestCase(APITestCase):
         elif method == 'put':
             response = self.client.put(url, data or {}, headers=headers, format='json')
 
-
+        
         try:
             if isinstance(expected_status,list):
                 self.assertIn(response.status_code, expected_status)
@@ -55,6 +60,7 @@ class BaseUserTestCase(APITestCase):
             return response
         except AssertionError:
             print(AssertionError)
+            print('response.json report')
             print(response.json())
             raise 
     @classmethod        
@@ -83,8 +89,8 @@ class BaseUserTestCase(APITestCase):
         context = self.create_permissions_dict(business_id=business_id, permissions_ids=permissions_ids)
         url = f"/users/usuario/{user_id}/"
         bearer_token = self.get_user_token(user=access_user)
-
-        return self.client.patch(path=url, data=context, headers={ "Authorization": f'Bearer {bearer_token}',  "Content-Type": 'application/json'}, format='json')
+        self.load_cookie_token(bearer_token=bearer_token)
+        return self.client.patch(path=url, data=context, headers={  "Content-Type": 'application/json'}, format='json')
     
 
 
@@ -93,7 +99,8 @@ class BaseUserTestCase(APITestCase):
         context = self.create_groups_dict(business_id=business_id,groups_ids=groups_ids)
         url = f"/users/usuario/{user_id}/"
         bearer_token = self.get_user_token(access_user)
-        return self.client.patch(path=url, data=context, headers={ "Authorization": f'Bearer {bearer_token}',  "Content-Type": 'application/json'}, format='json')
+        self.load_cookie_token(bearer_token=bearer_token)
+        return self.client.patch(path=url, data=context, headers={ "Content-Type": 'application/json'}, format='json')
 
     #def setUp(self):
 
@@ -199,7 +206,7 @@ class TestSuperUserListAPIView(BaseUserTestCase):
         print('superuser patch test passed')
 
     @tag('method','superuser_delete')
-    def test_users_superuser_delete(self):
+    def users_superuser_delete(self):
         """Test that superuser can read a user."""
         token = self.get_user_token(self.superuser)
         self.assertPermission('delete',self.user_url+f'{self.regular_user.id}/',status.HTTP_405_METHOD_NOT_ALLOWED,bearer_token=token)
@@ -256,7 +263,7 @@ class TestUserListAPIView(BaseUserTestCase):
         print('auth user patch test PASSED')
 
     @tag('method','auth_user_delete')
-    def test_users_auth_user_delete(self):
+    def users_auth_user_delete(self):
         """Test that auth_user can read a user."""
         token = self.get_user_token(self.auth_user)
         self.assertPermission('delete',self.user_url+f'{self.regular_user.id}/',status.HTTP_405_METHOD_NOT_ALLOWED,bearer_token=token)
@@ -328,7 +335,6 @@ class TestNotAuthUserAPIView(BaseUserTestCase):
     def test_retrieve_nonexistent_user(self):
         """Test retrieving a non-existent user."""
         token = self.get_user_token(self.auth_user)
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
         url = f'{self.user_url}99999/'
         self.assertPermission(url=url,method='get',expected_status=status.HTTP_403_FORBIDDEN,bearer_token=token)
 
@@ -337,7 +343,6 @@ class TestNotAuthUserAPIView(BaseUserTestCase):
     def test_retrieve_nonexistent_user_superuser(self):
         """Test retrieving a non-existent user."""
         token = self.get_user_token(self.superuser)
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
         url = f'{self.user_url}99999/'
         self.assertPermission(url=url, method='get',expected_status=status.HTTP_404_NOT_FOUND,bearer_token=token)
     
@@ -346,30 +351,27 @@ class TestNotAuthUserAPIView(BaseUserTestCase):
     def test_update_user_with_non_existing_business(self):
         """Test updating user permissions for a non existing business"""
         token = self.get_user_token(self.superuser)
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
         url = f'{self.user_url}{self.regular_user.id}/'
         data = {'groups':{'8888':{self.admin_group.id:True}}}
-        self.assertPermission(url=url, method='patch', data=data, expected_status=status.HTTP_400_BAD_REQUEST)
+        self.assertPermission(url=url, method='patch', data=data, expected_status=status.HTTP_400_BAD_REQUEST,bearer_token=token)
     
 
     @tag('not_auth','permission_data','non_existing','non_existing_permission')
     def test_update_user_with_invalid_permission(self):
         """Test updating user permissions with non existing permission"""
         token = self.get_user_token(self.superuser)
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
         url = f'{self.user_url}{self.regular_user.id}/'
         data = {'permissions':{self.business.id:{'999':True}}}
-        self.assertPermission(url=url, method='patch', data=data, expected_status=status.HTTP_400_BAD_REQUEST)
+        self.assertPermission(url=url, method='patch', data=data, expected_status=status.HTTP_400_BAD_REQUEST,bearer_token=token)
 
 
     @tag('not_auth','permission_data','non_existing','non_existing_group')
     def test_update_user_with_invalid_group(self):
         """Test updating user permissions with non existing group"""
         token = self.get_user_token(self.superuser)
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
         url = f'{self.user_url}{self.regular_user.id}/'
         data = {'groups':{self.business.id:{'999':True}}}
-        self.assertPermission(url=url, method='patch', data=data, expected_status=status.HTTP_400_BAD_REQUEST)
+        self.assertPermission(url=url, method='patch', data=data, expected_status=status.HTTP_400_BAD_REQUEST,bearer_token=token)
     
 
     ############################################# HERE

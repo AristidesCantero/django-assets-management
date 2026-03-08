@@ -66,19 +66,19 @@ class UserQuerySet(models.QuerySet):
         users = list(self.raw(query))
         return users
 
-    def get_business_where_user_has_userpermission(self, user, permission) -> list:
+    def get_business_where_user_has_userpermission(self, user, permission) -> list[str]:
         UserBusinessPermission = apps.get_model('permissions', 'UserBusinessPermission')
         ubp_query = "SELECT id, business_key_id FROM permissions_userbusinesspermission WHERE user_key_id = %s AND permission_id = %s AND active=true" % (user.id, permission.id)
         business_with_user_perm = [str(ubpm.business_key_id) for ubpm in UserBusinessPermission.objects.raw(ubp_query)]
         return business_with_user_perm
 
-    def get_business_groups_user_is(self, user) -> set:
+    def get_business_groups_user_is(self, user) -> set[set[str,str]]:
         GroupBusinessPermission = apps.get_model('permissions', 'GroupBusinessPermission')
         gbp_query = "SELECT id, group_key_id, business_key_id FROM permissions_groupbusinesspermission WHERE user_key_id = %s AND active=true" % user.id
         businesses_and_keys = set([(str(gbpm.business_key_id) ,str(gbpm.group_key_id)) for gbpm in GroupBusinessPermission.objects.raw(gbp_query)])
         return businesses_and_keys
 
-    def groups_forbidden_to_make_action_of_permission(self, permission, bg_user_belongs: dict) -> list:
+    def groups_forbidden_to_make_action_of_permission(self, permission, bg_user_belongs: dict) -> list[int]:
         Permission = apps.get_model('auth', 'Permission')
         gfp_groups = set([g[1] for g in bg_user_belongs])
         gfp_groups_not_allowed_query = "SELECT id, group_id FROM permissions_forbiddengrouppermissions WHERE group_id IN (%s) AND permission_id = %s" % (",".join(gfp_groups), permission.id)

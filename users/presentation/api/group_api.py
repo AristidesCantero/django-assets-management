@@ -1,5 +1,6 @@
 from rest_framework.generics import RetrieveUpdateDestroyAPIView, ListCreateAPIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from permissions.domain.authentication import CookieJWTAuthentication
 from rest_framework.response import Response
 from rest_framework import status
 from permissions.domain.permissions import permissionsToCheckGroups
@@ -13,7 +14,7 @@ from django.db import connection
 
 class GroupAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = GroupSerializer
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = [CookieJWTAuthentication]
     permission_classes = [permissionsToCheckGroups]
     queryset = Group.objects.all()
     http_method_names = ['get', 'patch', 'delete']
@@ -64,7 +65,7 @@ class GroupAPIView(RetrieveUpdateDestroyAPIView):
 class GroupListAPIView(ListCreateAPIView):
     serializer_class = GroupListSerializer
     queryset = serializer_class.Meta.model.objects.all()
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = [CookieJWTAuthentication]
     permission_classes = [permissionsToCheckGroups]
 
 
