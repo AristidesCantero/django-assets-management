@@ -51,7 +51,20 @@ class UserQuerySet(models.QuerySet):
 
     def users_of_businesses_where_user_belongs(self, user_id: str, businesses: list, permission_id: str) -> list:
         query = "SELECT DISTINCT id, business_key_id FROM permissions_userbusinesspermission WHERE user_key_id = %s AND active=true AND permission_id = %s AND business_key_id IN (%s)" % (user_id, permission_id, ",".join(businesses))
-        return [str(ubpm.business_key_id) for ubpm in self.raw(query)]
+        groups_that_have_the_permission = "SELECT DISTINCT id, group_id FROM auth_group_permissions WHERE permission_id = %s" % (permission_id)
+        
+        groups_with_permission = list(set([str(group.group_id) for group in self.raw(groups_that_have_the_permission)]))
+        query2 = "SELECT DISTINCT id, business_key_id FROM permissions_groupbusinesspermission WHERE user_key_id = %s AND active=true AND business_key_id IN (%s) AND group_key_id IN (%s)" % (user_id, ",".join(businesses),",".join(groups_with_permission))
+        users_that_belongs_group_permissions = []
+        if groups_with_permission:
+            users_that_belongs_group_permissions = [str(group.business_key_id for group in self.raw(query2))]
+        
+        
+        users_that_belongs_user_permissions = [str(ubpm.business_key_id) for ubpm in self.raw(query)]
+        
+        
+        all_users_permitted = set(users_that_belongs_group_permissions+users_that_belongs_user_permissions)
+        return all_users_permitted
 
 
 

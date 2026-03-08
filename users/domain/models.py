@@ -77,7 +77,7 @@ class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
                 return {"user": consulted_user, "exists": True}
             
             
-            permission = self.get_permission(method=request.method, accessed_model=logged_user)
+            permission = self.get_permission(method=request.method, accessed_model=User._meta.model_name)
 
             
             if not permission:
