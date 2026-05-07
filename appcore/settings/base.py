@@ -45,9 +45,11 @@ LOCAL_APPS = [
 THIRD_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'simple_history',
-    'drf_yasg'
+    'drf_yasg',
+    
 ]
 
 INSTALLED_APPS = BASE_APPS + LOCAL_APPS + THIRD_APPS
@@ -108,7 +110,16 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_RENDERER_CLASSES': (
         'rest_framework.renderers.JSONRenderer',
-    )
+    ),
+    "EXCEPTION_HANDLER": "appcore.errors.custom_exception_handler",
+    "DEFAULT_THROTTLE_CLASSES": [
+      'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.AnonRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'user': '100/min',
+        'anon': '20/min',
+    }
 }
 
 
@@ -134,9 +145,24 @@ AUTH_PASSWORD_VALIDATORS = [
 #AUTHENTICATION_BACKENDS = [
 #    'permissions.backends.BusinessPermissionBackend',
 #]
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SECURE = False
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME":timedelta(minutes=100),
+    "ACCESS_TOKEN_LIFETIME":timedelta(minutes=5),
+    'REFRESH_TOKEN_LIFETIME':timedelta(minutes=200),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': False,
+    'UPDATE_LAST_LOGIN': True,
+    'AUTH_COOKIE':"access_token",
+    'AUTH_COOKIE_HTTP_ONLY':True,
+    'AUTH_COOKIE_SAMESITE':"Lax",
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'LEEWAY': 0,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
 }
 
 
