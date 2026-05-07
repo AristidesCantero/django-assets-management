@@ -14,5 +14,6 @@ urlpatterns = [
     path('grupos/',GroupListAPIView.as_view(), name='group_api'),
     path('grupo/<int:pk>/',GroupAPIView.as_view(), name='group_detail_api_view'),
     path('token/', CustomizedTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('token/refresh/', CustomizedTokenRefreshView.as_view(), name='token_refresh'),
+    path('logout/', CustomizedTokenBlackListLogout.as_view(), name='logout')
 ]

@@ -63,16 +63,21 @@ class HeadquarterListAPIView(RetrieveUpdateDestroyAPIView):
     allowed_methods = ["GET", "POST"]
 
 
-    def get_queryset(self, request):
-        user_headquarters = HeadquartersQuerySet().get_user_headquarters(request=request)
+    def get_queryset(self, request, businessid=0):
+        user_headquarters = HeadquartersQuerySet().get_user_headquarters(request=request, selected_business_id=businessid)
         return user_headquarters
 
-    def get(self, request):
-        headquarters = self.get_queryset(request=request)
+    def get(self, request, pk=0):
+        headquarters = self.get_queryset(request=request, businessid=pk)
         new_headquarters = {}
+        
+
+        
         for business in headquarters.keys():
             new_headquarters[business] = self.serializer_class(headquarters[business], many=True).data
-        
+            
+        if pk and pk in new_headquarters.keys():
+          new_headquarters = new_headquarters[pk]
 
         context = {
             'data':new_headquarters

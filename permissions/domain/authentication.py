@@ -8,13 +8,17 @@ class CookieJWTAuthentication(JWTAuthentication):
     """
     Custom JWT authentication class to extract the access token from an HttpOnly cookie.
     """
+    def authenticate(self, request):
+        authentication = super().authenticate(request)
+        #print(authentication)
+        return authentication
     
     def cookies_to_dict(self, cookies: str)-> dict:
         if not cookies:
             return None
         
         fields = cookies.split(";")
-        return {field.split("=")[0]:field.split("=")[1] for field in fields}
+        return {field.split("=")[0].strip():field.split("=")[1] for field in fields}
 
     def get_header(self, request):
         return request.headers
@@ -22,11 +26,15 @@ class CookieJWTAuthentication(JWTAuthentication):
     
     def get_raw_token(self, header: HttpHeaders) -> Optional[bytes]:
         # Read the access token from the "access_token" cookie
+
         cookies = header.get('Cookie')
         if not cookies:
             return None
         
         cookies = self.cookies_to_dict(cookies=cookies)
+        if not 'access_token' in cookies.keys():
+            return None
+        
         access_token = cookies['access_token']
-        return access_token.encode('utf-8') or None
+        return access_token.encode('utf-8')
     

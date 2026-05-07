@@ -64,12 +64,10 @@ class HeadquartersSerializer(serializers.Serializer):
 
     def to_representation(self, instance):
         return {
-            instance.id:{
                 'name': instance.name,
                 'address': instance.address,
                 'phone': instance.phone,
                 'business':instance.business_key.id
-            }
         }
     
     
@@ -96,7 +94,6 @@ class HeadquartersListSerializer(serializers.ModelSerializer):
         business_key = instance.business_key
 
         return {
-            instance.id: {
             'id': instance.id,
             'name': instance.name,
             'address': instance.address,
@@ -104,7 +101,6 @@ class HeadquartersListSerializer(serializers.ModelSerializer):
             'business_key': instance.business_key.name,
             'business_name': business_key.name if business_key else 'N/A'
             }
-        }
 
 
     

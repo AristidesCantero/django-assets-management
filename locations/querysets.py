@@ -25,11 +25,19 @@ def get_user_headquarters(self, request) -> dict:
 
 
 class HeadquartersQuerySet(models.QuerySet):
-    def get_user_headquarters(self, request, dictionary=False) -> dict:
+    def get_user_headquarters(self, request, dictionary=False, selected_business_id=0) -> dict:
+          if isinstance(selected_business_id, int) and selected_business_id<0:
+            raise TypeError('Selected business id is not integer type')
+          
           businesses_allowed = User.objects.businesses_allowed_to_user(request=request)
+          
+          if selected_business_id:
+            businesses_allowed = [selected_business_id] if str(selected_business_id) in businesses_allowed else []
+          
           headquarters_by_business = {}
           for business_id in businesses_allowed:
                headquarters_by_business[business_id] = self.get_headquarters_by_business(business_id=business_id, dictionary=dictionary)
+
           return headquarters_by_business
 
             
