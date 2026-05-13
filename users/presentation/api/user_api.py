@@ -1,9 +1,9 @@
 from rest_framework.response import Response
-from rest_framework.generics import RetrieveUpdateDestroyAPIView, ListCreateAPIView
+from rest_framework.generics import RetrieveUpdateDestroyAPIView, ListCreateAPIView, CreateAPIView
 from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.views import TokenBlacklistView
-from users.presentation.serializers.user_serializer import UserSerializer, UserListSerializer, UserTokenObtainPairSerializer
+from users.presentation.serializers.user_serializer import UserSerializer, UserListSerializer, UserRegisterSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView,TokenRefreshView
 from users.presentation.serializers.tokenserializer import TokenBlacklistSerializer
 from permissions.domain.permissions import *
@@ -12,6 +12,8 @@ from users.domain.models import User
 from django.db import connection
 from django.conf import settings
 from appcore.settings.base import SIMPLE_JWT, DEBUG
+
+
 
 
 def sqlQuery(query: str, params: tuple = ()):
@@ -38,7 +40,7 @@ class UserListAPIView(ListCreateAPIView):
     serializer_class = UserListSerializer
     authentication_classes = [CookieJWTAuthentication]
     permission_classes = [permissionsToCheckUsers]  #use function get_permission to customize
-    http_method_names = ["get", "post"]
+    http_method_names = ["get"]
 
 
     #funcion para realizar la consulta sql y recibir un diccionario por cada fila en donde las llaves son los nombres de las columnas
@@ -138,6 +140,26 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
     
 
 
+
+class UserRegisterAPIView(CreateAPIView):
+    serializer_class = UserRegisterSerializer
+    http_method_names = ["post"]
+    
+    
+    def post(self, request):
+        serializer = self.serializer_class(
+            data=request.data
+        )
+
+        serializer.is_valid(raise_exception=True)
+
+
+
+        
+        return Response(
+            {"message": "Verification email sent"},
+            status=status.HTTP_201_CREATED
+        )
 
 
 

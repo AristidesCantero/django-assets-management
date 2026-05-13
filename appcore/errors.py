@@ -4,7 +4,12 @@ from rest_framework.response import Response
 from django.http import Http404
 
 def custom_exception_handler(exc, context):
-    # Let DRF handle it first
+    # Let DRF handle it first}
+    
+    print("EXCEPCION: ")
+    print(exc)
+    print("CONTEXTO")
+    print(context)
     response = exception_handler(exc, context)
 
     # Handle DRF-generated errors (including NotFound)

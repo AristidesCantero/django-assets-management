@@ -5,6 +5,12 @@ from users.querysets import UserQuerySet, method_to_action
 from django.apps import apps
 from users.querysets import UserQuerySet
 
+import hashlib
+import secrets
+from datetime import timedelta
+from django.db import models, transaction
+from django.utils import timezone
+
 # Create your models here.
 
 class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
@@ -180,13 +186,14 @@ class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
     
 
 
-
 class User(AbstractUser):
     username = models.CharField(max_length = 255, unique=True, null=False, blank=False, default='')
     email = models.EmailField('Correo Electrónico' ,max_length=255 ,unique=True, null=False, blank=False, default='')
+    email_verified = models.BooleanField(default=False)
     name = models.CharField('Nombres', max_length=255, blank=False, null=False, default='')
     last_name = models.CharField('Apellidos', max_length=255, blank=True, null=True, default='')
     image = models.ImageField('Imagen de Perfil', upload_to='perfil/', max_length=255, blank=True, null=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField('Fecha de Creación', auto_now_add=True)
@@ -203,6 +210,97 @@ class User(AbstractUser):
     
     def get_plural(self):
         return 'users'
+      
+    def soft_delete(self):
+      self.deleted_at = timezone.now()
+      self.is_active = False
+      self.save(update_fields=["deleted_at","is_active"])
 
 
 
+
+class AuthProvider(models.Model):
+    PROVIDERS = (
+        ("password", "password"),
+        ("google", "google"),
+        ("github", "github"),
+    )
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="providers"
+    )
+
+    provider_type = models.CharField(max_length=20, choices=PROVIDERS)
+
+    provider_uid = models.CharField(max_length=255)
+
+    class Meta:
+        unique_together = ("provider_type", "provider_uid")
+
+
+class EmailVerificationToken(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="verification_tokens"
+    )
+
+    token_hash = models.CharField(max_length=64, unique=True)
+
+    expires_at = models.DateTimeField()
+
+    consumed_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @staticmethod
+    def generate_token(user):
+        raw_token = secrets.token_urlsafe(32)
+
+        token_hash = hashlib.sha256(
+            raw_token.encode()
+        ).hexdigest()
+
+        EmailVerificationToken.objects.create(
+            user=user,
+            token_hash=token_hash,
+            expires_at=timezone.now() + timedelta(hours=24)
+        )
+
+        return raw_token
+
+    @staticmethod
+    @transaction.atomic
+    def verify_token(raw_token):
+        token_hash = hashlib.sha256(
+            raw_token.encode()
+        ).hexdigest()
+
+        token = (
+            EmailVerificationToken.objects
+            .select_for_update()
+            .filter(token_hash=token_hash)
+            .first()
+        )
+
+        if not token:
+            return "invalid"
+
+        if token.consumed_at:
+            return "already_used"
+
+        if token.expires_at < timezone.now():
+            return "expired"
+
+        token.consumed_at = timezone.now()
+        token.save(update_fields=["consumed_at"])
+
+        user = token.user
+
+        if not user.email_verified:
+            user.email_verified = True
+            user.save(update_fields=["email_verified"])
+
+        return "verified"

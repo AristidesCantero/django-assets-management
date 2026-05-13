@@ -9,7 +9,7 @@ from rest_framework_simplejwt.views import (
 )
 
 urlpatterns = [
-    path('usuarios/',UserListAPIView.as_view(), name='usuario_api'),
+    path('registro/',UserRegisterAPIView.as_view(), name='usuario_api'),
     path('usuario/<int:pk>/',UserAPIView.as_view(), name='usuario_detail_api_view'),
     path('grupos/',GroupListAPIView.as_view(), name='group_api'),
     path('grupo/<int:pk>/',GroupAPIView.as_view(), name='group_detail_api_view'),

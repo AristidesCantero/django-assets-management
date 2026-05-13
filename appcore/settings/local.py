@@ -39,8 +39,16 @@ DATABASES = {
         'USER': config('POSTGRES_USER_LOCAL'),
         'PASSWORD': config('POSTGRES_PASSWORD_LOCAL'),
         'HOST': 'localhost',
-        'PORT': 5433,
+        'PORT': 5434,
     },
+   # 'default':{
+   #   'ENGINE': 'django.db.backends.postgresql',
+   #     'NAME': config('POSTGRES_NAME_LOCAL'),
+   #     'USER': config('POSTGRES_USER_LOCAL'),
+   #     'PASSWORD': config('POSTGRES_PASSWORD_LOCAL'),
+   #     'HOST': 'localhost',
+   #     'PORT': 5434,
+   # },
 
     'sqlite': {
         'ENGINE': 'django.db.backends.sqlite3',

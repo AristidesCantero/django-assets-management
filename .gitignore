@@ -11,3 +11,5 @@ db_drf
 .gitignore
 venv/
 arquitectura.txt
+*.yaml
+!docker_compose.yaml
