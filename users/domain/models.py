@@ -1,15 +1,15 @@
-from django.db import models
-from django.contrib.auth.models import AbstractUser, BaseUserManager, PermissionsMixin
-from simple_history.models import HistoricalRecords
-from users.querysets import UserQuerySet, method_to_action
-from django.apps import apps
-from users.querysets import UserQuerySet
 
-import hashlib
-import secrets
-from datetime import timedelta
+from django.contrib.auth.models import AbstractUser, BaseUserManager
+from users.querysets import UserQuerySet
+from simple_history.models import HistoricalRecords
+from users.querysets import UserQuerySet
 from django.db import models, transaction
 from django.utils import timezone
+from datetime import timedelta
+import hashlib
+import secrets
+
+
 
 # Create your models here.
 
@@ -20,143 +20,26 @@ class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
     def get_queryset(self):
         return UserQuerySet(self.model, using=self._db)
     
-    def user_has_permission_users(self, user, request):
-        return self.get_queryset().businesses_with_user_permission(user, request)
     
-    def get_user(self, request):
-        user = request.user
-        if not user.is_authenticated or not user:
-            return None
-        return user
+    def user_has_clearance(self, user_id: str, business_id: str, permission_name: str) -> bool:
+      permission = self.get_permission(permission_name)
+      if not permission:
+        return False
+      user_permission = self.user_business_personal_permission(user_id,business_id,permission.id)
+      return True if user_permission else False
+    
         
-    def get_permission(self, method, accessed_model):
-        required_permission = f'{method_to_action[method]}_{accessed_model}'
-        Permission = apps.get_model('auth', 'Permission')
-        permission = Permission.objects.filter(codename=required_permission).first()
-        return permission
+
 
     def user_belongs_to_a_group(self, user, group):
         query =  "SELECT id FROM permissions_groupbusinesspermission WHERE user_key_id = %s and group_key_id = %s" % (user.id, group.id)
         ubp = set([str(ubpm.id) for ubpm in self.raw(query)])
         return group.id in ubp
 
-    def user_can_access_model(self, request, accessed_model):
-        """Returns a empty list if logged user cannot access, otherwise returns a list with the user"""
-        
-        user = self.get_user(request)
-        if not user:
-            return []
-        
-        if user.is_superuser:
-            return [user]
 
-        permission = self.get_permission(method=request.method, accessed_model=accessed_model._meta.model_name)
-        business_where_user_belongs = self.get_queryset().businesses_where_user_belongs(user_id=user.id)
 
-        if not business_where_user_belongs or not permission:
-            return []
-        
-        businesses_where_user_has_permission = self.users_of_businesses_where_user_belongs(user_id=user.id, businesses=business_where_user_belongs, permission_id=permission.id)
-        if not businesses_where_user_has_permission:
-            return []
-        
-        return [user]
-
-    def user_is_allowed_to_check_user(self, request, consulted_user_id: str):
-            """Returns a dict that returns True in exists if consulted user exists and is in a business where the logged user belongs, in user returns a 
-            User objects with the data of the consulted if logged user has permission to see this user, superadmins ignore all permissions except modify or delete
-            other superusers"""
-        
-        
-            logged_user = request.user
-            consulted_user = self.filter(pk=consulted_user_id).first()
-            
-            if not consulted_user: 
-                return {"user": None, "exists": False}
-            
-            if consulted_user.is_superuser:
-                if logged_user.is_superuser:
-                    return {"user": consulted_user, "exists": True, 'superuser':True}
-                return {"user": None, "exists": True}
-            
-            if logged_user.is_superuser:
-                return {"user": consulted_user, "exists": True}
-            
-            
-            permission = self.get_permission(method=request.method, accessed_model=User._meta.model_name)
-
-            
-            if not permission:
-                return {"user": None, "exists": True}
-           
-
-            businesses_where_consulted_user_belongs = self.get_queryset().businesses_where_user_belongs(user_id=consulted_user_id)
-
-            if not businesses_where_consulted_user_belongs:
-                return {"user": None, "exists": True}
-            
-            businesses_where_logged_user_has_permission = self.users_of_businesses_where_user_belongs(user_id=logged_user.id, businesses=businesses_where_consulted_user_belongs, permission_id=permission.id)
-
-            if not businesses_where_logged_user_has_permission: #logged user has permission here
-                return {"user": None, "exists": True}
-            
-            if not (set(businesses_where_consulted_user_belongs) & set(businesses_where_logged_user_has_permission)):
-                return {"user": None, "exists":True}
-            
-            return {"user": consulted_user, "exists": True}
-
-    def businesses_allowed_to_user(self, request, model=None) -> list[str]:
-        user = request.user
-
-        if user.is_superuser:
-            Business = apps.get_model('locations', 'Business')
-            businesses = Business.objects.all()
-            return [str(b.id) for b in businesses]
-
-        if not user.is_authenticated or not user:
-            return []
-        
-        allowed_businesses = self.businesses_where_user_has_user_and_grouppermission_on_model(user=user, request=request, model=model)
-        return allowed_businesses
-
-    def businesses_where_user_has_user_and_grouppermission_on_model(self, user, request, model=None) -> list[str]:
-            
-            model = user if not model else model
-
-            permission = self.get_permission(method=request.method, accessed_model=model._meta.model_name)
-            if not permission: 
-                return []
-            
-            business_user_has_perm = self.get_queryset().get_business_where_user_has_userpermission(user=user, permission=permission)
-            business_with_groups_user_belongs = self.get_queryset().get_business_groups_user_is(user=user)
-            
-            groups_not_allowed = []
-
-            #searchs prohibitions for the groups the user belongs to / returns the permission ids
-            if business_with_groups_user_belongs:
-                groups_not_allowed = self.get_queryset().groups_forbidden_to_make_action_of_permission(permission=permission, bg_user_belongs=business_with_groups_user_belongs)
-
-            allowed_businesses = []
-            # remove businesses where the group has prohibition for the permission
-            if groups_not_allowed:
-                for b, g in business_with_groups_user_belongs:
-                    if g not in groups_not_allowed:
-                        allowed_businesses.append(b)
-            
-            # combine both lists without repeat / are the ids of the allowed businesses
-            allowed_businesses = set(allowed_businesses + business_user_has_perm)
-
-            return list(allowed_businesses)
-
-    def users_allowed_to_user(self, request, model=None) -> list:
-        user = request.user
-        business_list = self.businesses_allowed_to_user(request=request, model=model)
-
-        if not business_list:
-            return []
-        
-        return self.users_that_belongs_to_a_business(business_list=business_list)
-
+    def get_users_by_business(self, business_id: str):
+        return User.objects.filter()
 
 
 
@@ -178,7 +61,7 @@ class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
         user.save(using=self.db)
         return user
     
-    def create_user(self, username, email, name, last_name, password=None, **extra_fields):
+    def create_user_unregistered(self, username, email, name, last_name, password=None, **extra_fields):
         return self._create_user(username, email, name, last_name, password, False, False, **extra_fields)
 
     def create_superuser(self, username, email, name, last_name, password=None, **extra_fields):
@@ -244,7 +127,7 @@ class EmailVerificationToken(models.Model):
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="verification_tokens"
+        related_name="verification_tokens",unique=True
     )
 
     token_hash = models.CharField(max_length=64, unique=True)
@@ -270,6 +153,26 @@ class EmailVerificationToken(models.Model):
         )
 
         return raw_token
+      
+    def refresh_old_token(user):
+      existing_token = EmailVerificationToken.objects.filter(user_id=user.id).first()
+      
+      if not existing_token:
+        return None
+      
+      #alternate
+      #token_hash = make_password(raw_token)
+      raw_token = secrets.token_urlsafe(32)
+      token_hash = hashlib.sha256(
+          raw_token.encode()
+      ).hexdigest()
+      
+      existing_token.token_hash = token_hash
+      existing_token.expires_at = timezone.now() + timedelta(hours=24)
+      existing_token.save()
+      
+      return raw_token
+      
 
     @staticmethod
     @transaction.atomic

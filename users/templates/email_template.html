@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <title>Email Verification</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background-color: #f4f4f4;
+                margin: 0;
+                padding: 0;
+            }
+            .email-container {
+                max-width: 600px;
+                margin: 50px auto;
+                background-color: #ffffff;
+                border-radius: 8px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                overflow: hidden;
+            }
+            .email-header {
+                background-color: #007bff;
+                color: #ffffff;
+                padding: 20px;
+                text-align: center;
+            }
+            .email-header h1 {
+                margin: 0;
+                font-size: 24px;
+            }
+            .email-body {
+                padding: 20px;
+                line-height: 1.6;
+            }
+            .email-body p {
+                margin: 10px 0;
+            }
+            .email-footer {
+                background-color: #f1f1f1;
+                padding: 15px;
+                text-align: center;
+                font-size: 14px;
+                color: #666;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="email-container">
+            <div class="email-header">
+                <h1>Verify Your Account</h1>
+            </div>
+            <div class="email-body">
+                <p>Hi there,</p>
+                <p>
+                    Sr(a) {{ user_name }}. Por favor ingrese en el siguiente enlace para confirmar su registro en la aplicación.
+                </p>
+                <p>Correo de verificación para aplicación: <h4 href="{{verification_email}}">{{ verification_email }}</h4>.</p>
+            </div>
+            <div class="email-footer">
+                &copy; 2025 Your Company. All rights reserved.
+            </div>
+        </div>
+    </body>
+</html>

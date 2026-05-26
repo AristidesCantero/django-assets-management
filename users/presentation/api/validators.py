@@ -14,8 +14,6 @@ def validate_name(value):
     if not value.isalpha():
         raise ValidationError("Username cannot have special characters.")
 
-    if User.objects.filter(username=value).exists():
-        raise ValidationError("A user with that username already exists.")
     return value
 
 def validate_last_name(value):

@@ -3,6 +3,7 @@ from django.apps import apps
 from locations.models import Business
 
 
+
 method_to_action = {
     'GET': 'view',
     'POST': 'add',
@@ -11,90 +12,83 @@ method_to_action = {
     'DELETE': 'delete'
 }
 
+
+def get_userbusiness_permission_model():
+  return apps.get_model('permissions', 'UserBusinessPermission')
+
+def get_model(app_label, model_name):
+    return apps.get_model(app_label=app_label,model_name=model_name)
+
+def get_permission_by_codename(app_label,model_name, codename):
+    Permission = apps.get_model(app_label=app_label,model_name=model_name)
+    return Permission.objects.get(codename=codename)
+
+def query_where(conditional : dict[str:str]):
+    if not conditional:
+        return ""
+    # Create a list of "key=value" strings from the dictionary
+    conditions = [f"{key}={value}" for key, value in conditional.items()]
+    
+    # Join the conditions with " AND "
+    return " AND ".join(conditions)
+    
+def select_query(fields:list[str], table_name, conditionals=""):
+      return f"SELECT {", ".join(fields)} FROM {table_name}" + f" WHERE {conditionals}" if conditionals else ""
+
+def extract_query_data(model: type[models.Model], query: str, row_names: list[str]):
+  raw_query = model.objects.raw(query)
+  return [{field: getattr(item, field,None) for field in row_names} for item in raw_query]
+
+
+
+
 class BusinessQuerySet(models.QuerySet):
 
     #conseguir listado de empresas en las que el usuario cuenta con permisos
-    def user_allowed_businesses(user, request):
+    def user_allowed_businesses(user, request) -> list[int]:
         required_permission = f"{method_to_action[request.method]}_{Business._meta.model_name}"
-        Permission = apps.get_model('auth', 'Permission')
-        permission = Permission.objects.get(codename=required_permission)
+        permission = get_permission_by_codename('auth', 'Permission', required_permission)
         businesses_allowed = UserQuerySet().get_business_where_user_has_userpermission(user=user, permission=permission)
         return businesses_allowed
     
-    
-    # 
-
-
     #check the businesses which the user has the permission for the model and based in the method
 
 
-
 class UserQuerySet(models.QuerySet):
+  
+    def user_role_in_business(self, user_id: str,business_id: str) -> int | None:
+      #check in groupbusinesspermission if user has a role in the business
+      query_where = query_where({"business_key_id":business_id,"user_key_id":user_id,"active":"true"})
+      gbp_query = select_query(["id", "group_key_id", "business_key_id"], "permissions_groupbusinesspermission", query_where)
+      
+      result = extract_query_data(self.raw, gbp_query,["group_key_id", "business_key_id"])
+      role_id = result[result.keys()[0]] if result.keys() else 0
+      
+      return role_id
+      
+  
+    def businesses_where_user_has_role(self, user_id) -> type[set(tuple[str,str])]:
+      query_where = query_where({"user_key_id":user_id,"active":"true"})
+      gbp_query = select_query(["id", "group_key_id", "business_key_id"], "permissions_groupbusinesspermission", query_where)
 
-    # only direct queries to database, these queries are later used in manager
+      return set(extract_query_data(self.raw, gbp_query, ["business_key_id", "group_key_id"]))      
+          
+    
+    def user_business_personal_permission(self, user_id, business_id, permission_id) -> type[models.Model] | None:
+      UserBusinessPermission = get_userbusiness_permission_model()
+      return UserBusinessPermission.objects.filter(user_key = user_id, business_key= business_id, permission_id=permission_id)
 
-    def businesses_where_user_has_userpermission(self, user, business, perm):
-        if not user or not business or not perm:
-            return False
 
-        UserBusinessPermission = apps.get_model('permissions', 'UserBusinessPermission')
-        perm_exists = UserBusinessPermission.objects.filter(user_key_id = user.id, permission_id = perm.id, business_key_id = business.id).exists()
-        return perm_exists
 
-    def businesses_where_user_belongs(self, user_id: str) -> list:
-        query = "SELECT DISTINCT id, business_key_id FROM permissions_userbusinesspermission WHERE user_key_id = %s AND active=true" % user_id
-        query2 = "SELECT DISTINCT id, business_key_id FROM permissions_groupbusinesspermission WHERE user_key_id = %s AND active=true" % user_id
-        list1 = [str(ubpm.business_key_id) for ubpm in self.raw(query)]
-        list2 = [str(ubpm.business_key_id) for ubpm in self.raw(query2)]
-
-        return list(set(list1+list2))
-
-    def users_of_businesses_where_user_belongs(self, user_id: str, businesses: list, permission_id: str) -> list:
-        query = "SELECT DISTINCT id, business_key_id FROM permissions_userbusinesspermission WHERE user_key_id = %s AND active=true AND permission_id = %s AND business_key_id IN (%s)" % (user_id, permission_id, ",".join(businesses))
-        groups_that_have_the_permission = "SELECT DISTINCT id, group_id FROM auth_group_permissions WHERE permission_id = %s" % (permission_id)
-        
-        groups_with_permission = list(set([str(group.group_id) for group in self.raw(groups_that_have_the_permission)]))
-        query2 = "SELECT DISTINCT id, business_key_id FROM permissions_groupbusinesspermission WHERE user_key_id = %s AND active=true AND business_key_id IN (%s) AND group_key_id IN (%s)" % (user_id, ",".join(businesses),",".join(groups_with_permission))
-        users_that_belongs_group_permissions = []
-        if groups_with_permission:
-            users_that_belongs_group_permissions = [str(group.business_key_id for group in self.raw(query2))]
-        
-        
-        users_that_belongs_user_permissions = [str(ubpm.business_key_id) for ubpm in self.raw(query)]
-        
-        
-        all_users_permitted = set(users_that_belongs_group_permissions+users_that_belongs_user_permissions)
-        return all_users_permitted
+    def get_permission(self, permission_name="", method="", accessed_model=""):
+      required_permission = permission_name if permission_name else f'{method_to_action[method]}_{accessed_model}'
+      Permission = apps.get_model('auth', 'Permission')
+      permission = Permission.objects.filter(codename=required_permission).first()
+      return permission
 
 
 
 
     
 
-    def users_that_belongs_to_a_business(self, business_list: list) -> list:
-        if not business_list:
-            return []   
-        
-        query =  "SELECT * FROM users_user WHERE id IN (SELECT DISTINCT user_key_id FROM permissions_userbusinesspermission WHERE business_key_id IN (%s) AND active=true)" % ",".join(list(map(str,business_list)))
-        users = list(self.raw(query))
-        return users
-
-    def get_business_where_user_has_userpermission(self, user, permission) -> list[str]:
-        UserBusinessPermission = apps.get_model('permissions', 'UserBusinessPermission')
-        ubp_query = "SELECT id, business_key_id FROM permissions_userbusinesspermission WHERE user_key_id = %s AND permission_id = %s AND active=true" % (user.id, permission.id)
-        business_with_user_perm = [str(ubpm.business_key_id) for ubpm in UserBusinessPermission.objects.raw(ubp_query)]
-        return business_with_user_perm
-
-    def get_business_groups_user_is(self, user) -> set[set[str,str]]:
-        GroupBusinessPermission = apps.get_model('permissions', 'GroupBusinessPermission')
-        gbp_query = "SELECT id, group_key_id, business_key_id FROM permissions_groupbusinesspermission WHERE user_key_id = %s AND active=true" % user.id
-        businesses_and_keys = set([(str(gbpm.business_key_id) ,str(gbpm.group_key_id)) for gbpm in GroupBusinessPermission.objects.raw(gbp_query)])
-        return businesses_and_keys
-
-    def groups_forbidden_to_make_action_of_permission(self, permission, bg_user_belongs: dict) -> list[int]:
-        Permission = apps.get_model('auth', 'Permission')
-        gfp_groups = set([g[1] for g in bg_user_belongs])
-        gfp_groups_not_allowed_query = "SELECT id, group_id FROM permissions_forbiddengrouppermissions WHERE group_id IN (%s) AND permission_id = %s" % (",".join(gfp_groups), permission.id)
-        groups_not_allowed =[perm.group_id for perm in Permission.objects.raw(gfp_groups_not_allowed_query)]
-
-        return groups_not_allowed
+    

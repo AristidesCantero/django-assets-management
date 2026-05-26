@@ -1,8 +1,7 @@
 from rest_framework import serializers
-from users.domain.models import User, AuthProvider, EmailVerificationToken
+from users.domain.models import User
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.validators import UniqueValidator
+
 from users.presentation.api.validators import validate_name, validate_password, validate_last_name, validate_email_unique
 from users.presentation.serializers.data_manage.set_businesses import *
 from users.presentation.serializers.data_manage.permission_manager import *
@@ -162,60 +161,6 @@ class UserListSerializer(serializers.ModelSerializer):
                 }
 
 
-
-class UserRegisterSerializer(serializers.ModelSerializer):
-        class Meta:
-            model = User
-            fields = '__all__'
-            extra_kwargs = {
-              "password": {
-                "write_only":True,
-                "min_length":8,
-              }
-            }
-
-        username = serializers.CharField(validators=[validate_name], required=True)
-        name = serializers.CharField(validators=[validate_name], required=True)
-        last_name = serializers.CharField(validators=[validate_last_name], required=True)
-        email = serializers.EmailField(validators=[UniqueValidator(queryset=User.objects.all(), message="Email already registered")], required=True)
-        password = serializers.CharField(write_only=True, validators=[validate_password], required=True)
-        
-        def create(self, validated_data):
-          email = validated_data["email"]
-          password = validated_data["password"]
-          
-          existing = User.objects.filter(email=email).first()
-
-          if existing and existing.email_verified:
-            raise serializers.ValidationError(
-                "User already exists."
-            )
-            
-          if existing and not existing.email_verified:
-              user = existing
-
-          else:
-            user = super().create(validated_data)
-            user.set_password(validated_data['password'])
-            user.save()
-
-            AuthProvider.objects.create(
-                user=user,
-                provider_type="password",
-                provider_uid=email
-            )
-            
-          raw_token = EmailVerificationToken.generate_token(user)
-          
-          send_verification_email(
-            user.email,
-            raw_token
-        )
-
-          
-              
-          return user
-      
 
 
 
