@@ -3,8 +3,6 @@ from users.domain.models import User
 from appcore.models import BaseModel
 from locations.domain.models import Business
 from django.contrib.auth.models import Group, Permission
-from django.contrib.postgres.fields import ArrayField
-from rest_framework_simplejwt.tokens import AccessToken
   
   
 

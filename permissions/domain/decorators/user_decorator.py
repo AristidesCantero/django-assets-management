@@ -24,7 +24,8 @@ def returns_from_inner(func: Callable[..., Any]) -> Callable[..., Any]:
 
 def handle_early_return(func: Callable[..., Any]) -> Callable[..., Any]:
     """
-    Decorator for parent functions to handle ReturnEarly exceptions
+    Decorator for parent functions to handle ReturnEarly exceptions \n
+    ReturEarly use the exception to stop the parent method and make it return the child method return if not None
     """
     @functools.wraps(func)
     def wrapper(*args, **kwargs):

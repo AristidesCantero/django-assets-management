@@ -1,9 +1,9 @@
 from rest_framework.permissions import BasePermission, DjangoModelPermissions
-from rest_framework_simplejwt.views import TokenObtainPairView
-from django.contrib.auth.models import Permission, Group
+from django.contrib.auth.models import Group
+from rest_framework.request import Request
 from users.domain.models import User
-from permissions.domain.models import UserBusinessPermission, GroupBusinessPermission
 from permissions.domain.decorators.user_decorator import *
+from permissions.domain.permission_utility.permissions_methods import *
 from django.db.models import Model
 from django.apps import apps
 
@@ -22,118 +22,75 @@ method_to_action = {
     'DELETE': 'delete'
 }
 
-@returns_from_inner
-def verify_unidentified_or_superadmin_check_user(request, consulted_user_id=None):
-            user = request.user
-            if not user.is_authenticated or not user:
-                return False
-            if user.is_superuser:
-                if consulted_user_id:
-                    consulted_user_is_superuser = User.objects.filter(id=consulted_user_id, is_superuser=True).first()
-                    if consulted_user_is_superuser and not request.method =='GET':
-                            return False
-                return True
-            return None
-        
-        
-@returns_from_inner
-def verify_unidentified_or_superadmin_models(request):
-            user = request.user
-            if not user.is_authenticated or not user:
-                return False
-            if user.is_superuser:
-                return True
-            return None
-    
-
-def check_if_user_has_permission(request=None):
-        if request is None:
-            return False
-        users_allowed = User.objects.users_allowed_to_user(request=request)
-        return True if users_allowed else False
-
-def checkIfUserHasPermissionOverModel(request=None, view=None):
-    if request is None or view is None:
-        return False
-    
-    user = request.user
-    model_class = view.serializer_class.Meta.model if hasattr(view, 'serializer_class') else None
-
-    #if hasattr(view, 'serializer_class'):
-    #    model_class = view.serializer_class.Meta.model
-    #else:
-    #    model_class = None
-
-    if not model_class:
-        return False
-    
-    users_allowed = User.objects.user_can_access_model(request=request, accessed_model=model_class)
-    return True if users_allowed else False
-
-
-def user_can_check_user(request, consulted_user_id: str) -> list[bool,bool]:
-    user_value = User.objects.user_is_allowed_to_check_user(request=request, consulted_user_id=consulted_user_id)
-    searched_user_exists = user_value.get("exists", False)
-    user_value = user_value.get("user", None)  
-    
-    return [searched_user_exists, user_value]        
-
-def path_has_primary_key(path: str) -> bool:
-    segments = path.strip('/').split('/')
-    primary_key = segments[-1]
-    return primary_key if primary_key.isdigit() else None
-
-class isAdmin(BasePermission):
-    def has_permission(self, request, view):
-        user = request.user
-        group = Group.objects.get(name="ADMIN")
-        groups_user_is_admin = User.objects.user_belongs_to_a_group(user=user,group=group)
-        return True if groups_user_is_admin else False
-    
-class isManager(BasePermission):
-    def has_permission(self, request, view):
-        user = request.user
-        group = Group.objects.get(name="MANAGER")
-        groups_user_is_manager = User.objects.user_belongs_to_a_group(user=user,group=group)
-        return True if groups_user_is_manager else False
 
 
 
 #Class to verify if a user has permissions to access the users API (checks if has a user o group permission in any business asociated)
 class permissionsToCheckUsers(DjangoModelPermissions):
-    @handle_early_return
-    def has_permission(self, request, view):
-        path_primary_key = path_has_primary_key(request.path)    
-          
-        if path_primary_key:
-            verify_unidentified_or_superadmin_check_user(request,consulted_user_id=path_primary_key)
-            exists, user_value = user_can_check_user(request=request, consulted_user_id=path_primary_key) 
-                        
-            if not user_value:
-                return False
+    def has_permission(self, request:Request, view):
+        user = request.user
+      
+        user_id = view.kwargs.get("user_id")
+        business_id = view.kwargs.get("business_id")
         
-        verify_unidentified_or_superadmin_check_user(request)
-            
-        return check_if_user_has_permission(request=request)
-
+        if not business_id:
+          return False
+        
+        consulted_is_superuser = user_is_superadmin(user_id)
+        permission_codename = get_permission_codename(view,request)
+        user_clearance = type_of_user_access(user_id=user.id,business_id=business_id,permission=permission_codename)
+        
+        if not user_clearance:
+          return False
+        
+        #auth to check a business users list
+        if not user_id and user_clearance: 
+          return True
+               
+        
+        if consulted_is_superuser:
+          if user_clearance == 'superuser':
+             return True
+          return False
+        
+        return user_clearance != None
+          
 
 class permissionsToCheckGroups(DjangoModelPermissions):
     def has_permission(self, request, view):
-        verify_unidentified_or_superadmin_check_user(request)
-        return False
+
+        user = request.user
+        method = request.method
         
-        #permission_required = f'{method_to_action[request.method]}_{Group._meta.model_name}'
-        #return checkIfUserHasPermission(user=user, perm_name=permission_required)
+        if user.is_superuser:
+          return True
+        
+        if method == 'GET' and user:
+          return True
+
+        return False
 
 
 class permissionToCheckModel(DjangoModelPermissions):
-    @handle_early_return
     def has_permission(self, request, view):
-        verify_unidentified_or_superadmin_check_user(request)
-        return checkIfUserHasPermissionOverModel(request=request, view=view)
+        user = request.user
+        business_id = view.kwargs.get("business_id")
+        
+        if not business_id:
+          return False
+        
+        permission_codename = get_permission_codename(view,request)
+        user_clearance = type_of_user_access(user_id=user.id,business_id=business_id,permission=permission_codename)
+        
+        if not user_clearance:
+          return False
+        
+        return True
+        
     
     
     
 
 
  
+
