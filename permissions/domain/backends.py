@@ -3,7 +3,7 @@ from django.contrib.auth.models import Permission
 from locations.domain.models import Business
 from django.db.models import ForeignKey, OneToOneField
 from django.core.exceptions import ObjectDoesNotExist
-from permissions.domain.models import UserBusinessPermission, GroupBusinessPermission
+from permissions.domain.models import UserBusinessPermission, BusinessMembership
 from django.contrib.auth.models import Group
 
 
@@ -58,7 +58,7 @@ class BusinessPermissionBackend(ModelBackend):
 
     def _get_group_business_permission(self, user, business, codename):
         try:
-            user_g_b_perms = GroupBusinessPermission.objects.filter(
+            user_g_b_perms = BusinessMembership.objects.filter(
                 business_key=business,
                 user_key=user)
             
