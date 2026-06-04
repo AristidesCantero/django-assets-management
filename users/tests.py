@@ -14,7 +14,7 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from users.domain.models import User
 from locations.domain.models import Business
-from permissions.domain.models import UserBusinessPermission, GroupBusinessPermission
+from permissions.domain.models import UserBusinessPermission, BusinessMembership
 from django.contrib.auth.models import Permission, Group
 from django.contrib.contenttypes.models import ContentType
 from datetime import datetime, timedelta

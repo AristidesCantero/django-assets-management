@@ -1,0 +1,129 @@
+```html
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Business Invitation</title>
+    </head>
+    <body
+        style="
+            margin: 0;
+            padding: 0;
+            background-color: #f4f8fc;
+            font-family: Arial, sans-serif;
+        "
+    >
+        <table
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            style="padding: 40px 0"
+        >
+            <tr>
+                <td align="center">
+                    <table
+                        width="600"
+                        cellpadding="0"
+                        cellspacing="0"
+                        style="
+                            background: #ffffff;
+                            border-radius: 8px;
+                            overflow: hidden;
+                        "
+                    >
+                        <!-- Header -->
+                        <tr>
+                            <td
+                                style="
+                                    background: #1e88e5;
+                                    padding: 30px;
+                                    text-align: center;
+                                "
+                            >
+                                <h1 style="margin: 0; color: #ffffff">
+                                    Ingresa a {{business_name}}
+                                </h1>
+                            </td>
+                        </tr>
+
+                        <!-- Content -->
+                        <tr>
+                            <td style="padding: 40px 30px">
+                                <h2 style="color: #1e88e5; margin-top: 0">
+                                    Saludos, {{user_name}}
+                                </h2>
+
+                                <p style="color: #555555; line-height: 1.6">
+                                    Has sido invitado para unirte a uan empresa
+                                    en la aplicacion Assets App, te invitamos a
+                                    continuar el proceso para unirte:
+                                </p>
+
+                                <div
+                                    style="
+                                        background: #f5f9ff;
+                                        border-left: 4px solid #1e88e5;
+                                        padding: 15px;
+                                        margin: 25px 0;
+                                    "
+                                >
+                                    <p style="margin: 5px 0">
+                                        <strong>Organización:</strong> {{
+                                        business_name }}
+                                    </p>
+                                    <p style="margin: 5px 0">
+                                        <strong>Invited By:</strong> {{
+                                        inviter_name }}
+                                    </p>
+                                </div>
+
+                                <p style="color: #555555; line-height: 1.6">
+                                    Haz click en el botón inferior para aceptar
+                                    la invitación y unirte a la empresa.
+                                </p>
+
+                                <!-- Button -->
+                                <div
+                                    style="text-align: center; margin-top: 35px"
+                                >
+                                    <a
+                                        href="{{ invitation_url }}"
+                                        style="
+                                            display: inline-block;
+                                            background: #1e88e5;
+                                            color: #ffffff;
+                                            text-decoration: none;
+                                            padding: 14px 30px;
+                                            border-radius: 6px;
+                                            font-weight: bold;
+                                        "
+                                    >
+                                        Aceptar Invitación
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Footer -->
+                        <tr>
+                            <td
+                                style="
+                                    background: #f4f8fc;
+                                    padding: 20px;
+                                    text-align: center;
+                                    color: #777777;
+                                    font-size: 12px;
+                                "
+                            >
+                                Si no esperabas recibir este correo puedes
+                                ignorar de forma segura este mensaje.
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+</html>
+```

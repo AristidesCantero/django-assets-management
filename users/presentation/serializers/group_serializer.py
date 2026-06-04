@@ -2,8 +2,6 @@ from rest_framework import serializers
 from django.contrib.auth.models import Group
 from rest_framework.validators import UniqueValidator
 from users.presentation.serializers.data_manage.permission_manager import set_group_permissions
-from users.presentation.serializers.validators.validators import validate_all_group_permissions
-from permissions.models import ForbiddenGroupPermissions
 
 
 
@@ -36,8 +34,6 @@ class GroupSerializer(serializers.ModelSerializer):
                     
         return updated_group
 
-    def validate_permissions(self, perms):
-        return validate_all_group_permissions(perms)
 
     def to_representation(self, instance):
         return { 'id': instance.id, 'name': instance.name, 'permissions': [(perm.id, perm.name) for perm in instance.permissions.all()]}

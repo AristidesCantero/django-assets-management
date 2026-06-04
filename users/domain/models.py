@@ -1,9 +1,10 @@
 
-from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.contrib.auth.models import AbstractUser, BaseUserManager, Permission
 from users.querysets import UserQuerySet
 from simple_history.models import HistoricalRecords
 from users.querysets import UserQuerySet
 from django.db import models, transaction
+from django.apps import apps
 from django.utils import timezone
 from datetime import timedelta
 import hashlib
@@ -15,31 +16,41 @@ import secrets
 
 class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
 
-    #only high level logic, direct queries to database should use the UserQuerySet in get_queryset()
-
-    def get_queryset(self):
-        return UserQuerySet(self.model, using=self._db)
-    
-    
-    def user_has_clearance(self, user_id: str, business_id: str, permission_name: str) -> bool:
-      permission = self.get_permission(permission_name)
-      if not permission:
+    #only high level logic, direct queries to database should use the UserQuerySet in get_queryset()    
+    def user_has_clearance(self, user: User,business_id: str,permission_codename: str) -> bool:
+      """this function returns if the user has a permission in a business"""
+      
+      #first we look for user membership
+      user_membership = User.objects.get_user_membership(user, business_id)
+      permission = Permission.objects.filter(codename=permission_codename).first()
+      
+      if not user_membership or not permission:
         return False
-      user_permission = self.user_business_personal_permission(user_id,business_id,permission.id)
-      return True if user_permission else False
-    
-        
+      
+      #then with the user membership we can check the grouppermission and if neccesary personal permissions
+      user_group_permission:bool = User.objects.has_grouppermission(user,permission.id)
+      
+      if user_group_permission:
+        return True
+      
+      user_business_permission = User.objects.has_userbusinesspermission(user_membership, permission_codename)
+      
+      if user_business_permission:
+        return user_business_permission.allowed
+      
+      return False
+
+    #api
+    def get_business_users(self, business_id: str) -> models.QuerySet[User]:
+        """from a business id returns a queryset of User that belongs to the business"""
+        business_users_ids = self.get_users_of_business(business_id)
+        return User.objects.filter(id__in=business_users_ids)
 
 
-    def user_belongs_to_a_group(self, user, group):
-        query =  "SELECT id FROM permissions_groupbusinesspermission WHERE user_key_id = %s and group_key_id = %s" % (user.id, group.id)
-        ubp = set([str(ubpm.id) for ubpm in self.raw(query)])
-        return group.id in ubp
+    def get_user_if_in_business(self, business_id:str, user_id:str) -> User | None:
+      business_membership = self.get_user_membership(user_id,business_id)
+      return business_membership.user if business_membership else None
 
-
-
-    def get_users_by_business(self, business_id: str):
-        return User.objects.filter()
 
 
 
@@ -124,11 +135,8 @@ class AuthProvider(models.Model):
 
 
 class EmailVerificationToken(models.Model):
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name="verification_tokens",unique=True
-    )
+  
+    user = models.OneToOneField(User,on_delete=models.CASCADE,related_name="verification_tokens")
 
     token_hash = models.CharField(max_length=64, unique=True)
 
@@ -153,6 +161,7 @@ class EmailVerificationToken(models.Model):
         )
 
         return raw_token
+      
       
     def refresh_old_token(user):
       existing_token = EmailVerificationToken.objects.filter(user_id=user.id).first()
@@ -207,3 +216,61 @@ class EmailVerificationToken(models.Model):
             user.save(update_fields=["email_verified"])
 
         return "verified"
+      
+      
+
+
+#invitation class only for existing users, change user for emails when moving to Saas models
+class Invitation(models.Model):
+    class Meta:
+      constraints = [
+        
+      ]
+  
+    business = models.ForeignKey("locations.Business", on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    token = models.CharField(max_length=100, unique=True)
+    is_accepted = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=timezone.now() + timedelta(hours=24))
+
+    def __str__(self):
+        return f"Invitation to {self.user} for {self.business}"
+      
+      
+    @staticmethod
+    def generate_token(user, business):
+        raw_token = secrets.token_urlsafe(32)
+
+        token_hash = hashlib.sha256(
+            raw_token.encode()
+        ).hexdigest()
+
+        Invitation.objects.create(
+            user=user,
+            token=token_hash,
+            business=business,
+            expires_at=timezone.now() + timedelta(hours=24)
+        )
+
+        return raw_token
+      
+      
+    def refresh_old_token(user):
+      existing_token = EmailVerificationToken.objects.filter(user_id=user.id).first()
+      
+      if not existing_token:
+        return None
+      
+      #alternate
+      #token_hash = make_password(raw_token)
+      raw_token = secrets.token_urlsafe(32)
+      token_hash = hashlib.sha256(
+          raw_token.encode()
+      ).hexdigest()
+      
+      existing_token.token_hash = token_hash
+      existing_token.expires_at = timezone.now() + timedelta(hours=24)
+      existing_token.save()
+      
+      return raw_token

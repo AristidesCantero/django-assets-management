@@ -2,10 +2,12 @@ from rest_framework.response import Response
 from rest_framework.generics import *
 from rest_framework import status
 from users.presentation.serializers.user_serializer import UserSerializer
+from users.presentation.serializers.invitation_serializer import UserInvitationSerializer
 from users.presentation.serializers.register_serializers import UserRegisterSerializer
+from users.domain.models import User, EmailVerificationToken, Invitation
 from permissions.domain.permissions import *
 from permissions.domain.authentication import CookieJWTAuthentication
-from users.domain.models import User, EmailVerificationToken
+from permissions.domain.models import BusinessRole
 from django.db import connection
 from django.core.mail import send_mail
 from django.contrib.auth.tokens import default_token_generator
@@ -39,45 +41,47 @@ def path_has_primary_key(path: str) -> bool:
 class UserAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = UserSerializer
     authentication_classes = [CookieJWTAuthentication]
-    permission_classes = [permissionsToCheckUsers]
+    permission_classes = [permissionsToCheckUser]
     http_method_names = ["get", "patch", "delete"]
     
     
-    def get_queryset(self,user_id):
-        pass
+    def get_queryset(self,user_id,business_id) -> User | None:
+        user = User.objects.get_user_if_in_business(business_id, user_id)
+        if not user:
+          raise User.DoesNotExist
+        return user
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
 
-    def get(self, request, user_id):
+    def get(self, request, user_id, business_id):
         try:
-            user = self.get_queryset(user_id=user_id)
+            user = self.get_queryset(user_id=user_id, business_id=business_id)
             response_data = {
-                'data': self.serializer_class(user,context={'request': request}).data
+                'data': self.serializer_class(user,context={'request': request,'user_id':user_id, 'business_id':business_id}).data
             }
             return Response(response_data, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'detail': 'User has not been found.'}, status=status.HTTP_404_NOT_FOUND)
  
-    def patch(self, request, pk, *args, **kwargs):
+    def patch(self, request, user_id, business_id):
         try:
-            user = self.get_queryset(pk=pk)
+            user = self.get_queryset(user_id=user_id, business_id=business_id)
         except User.DoesNotExist:
             return Response({'detail': 'User has not been found.'}, status=status.HTTP_404_NOT_FOUND)
         
-        serializer = self.serializer_class(user, data=request.data, partial=True, context={'request': request})
+        serializer = self.serializer_class(user, data=request.data, partial=True, context={'request': request,'user_id':user_id, 'business_id':business_id})
         if serializer.is_valid():
-            
             serializer.update(user, request.data)
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    def delete(self, request, pk, *args, **kwargs):
+    def delete(self, request, user_id, business_id):
         try:
-            user = self.get_queryset(pk=pk)
-            user_serializer_data = self.serializer_class(user, context={'request': request}).data
+            user = self.get_queryset(pk=user_id)
+            user_serializer_data = self.serializer_class(user, context={'request': request,'user_id':user_id, 'business_id':business_id}).data
             user.delete()
             return Response({'detail': 'User has been deleted successfully.', "data": user_serializer_data}, status=status.HTTP_200_OK)
         except User.DoesNotExist:
@@ -88,20 +92,18 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
 class UserListAPIView(RetrieveAPIView):
     serializer_class = UserSerializer
     authentication_classes = [CookieJWTAuthentication]
-    permission_classes = [permissionsToCheckUsers]
+    permission_classes = [permissionsToCheckUser]
     http_method_names = ["get"]
     
-    def get_queryset(self, pk):
-        user_data = User.objects.user_is_allowed_to_check_user(request=self.request, consulted_user_id=pk)
-        if not user_data["exists"] or not user_data['user']:
-            raise User.DoesNotExist
-        return user_data["user"]
+    def get_queryset(self, business_id) -> QuerySet[User]:
+        user_data = User.objects.get_business_users(business_id)
+        return user_data
 
-    def get(self, request, pk, *args, **kwargs):
+    def get(self, request, business_id):
         try:
-            user = self.get_queryset(pk=pk)
+            user = self.get_queryset(business_id=business_id)
             response_data = {
-                'data': self.serializer_class(user,context={'request': request}).data
+                'data': self.serializer_class(user,context={'request': request},many=True).data
             }
             return Response(response_data, status=status.HTTP_200_OK)
         except User.DoesNotExist:
@@ -120,7 +122,6 @@ class UserRegisterAPIView(CreateAPIView):
             data=request.data
         )
         
- 
         if serializer.is_valid(raise_exception=True):      
           serializer.save()
           return Response(
@@ -133,7 +134,7 @@ class UserRegisterAPIView(CreateAPIView):
 
 
 class UserRegisterConfirmationAPIView(RetrieveAPIView):
-      
+  
     def get(self, request):
         uid = request.GET.get("uid")
         received_token = request.GET.get("token")
@@ -205,3 +206,79 @@ class MailTesting(RetrieveUpdateDestroyAPIView):
 
     
     
+class InvitationAPIView(RetrieveUpdateDestroyAPIView):
+    serializer_class = UserInvitationSerializer
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [permissionToInviteUsers]
+    allowed_methods = ['post']
+  
+    def post(self, request):
+      
+        sender_user = request.user
+
+        serializer = self.serializer_class(
+            data=request.data, context={"sender":sender_user}
+        )
+        
+        if serializer.is_valid(raise_exception=True):      
+          serializer.save()
+          return Response(
+              {"message": "Invitation email sent"},
+              status=status.HTTP_201_CREATED
+          )
+        
+        return Response({'error':'Failed send verification email'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class InvitationAcceptAPIView(RetrieveAPIView):
+    allowed_methods = ['get']
+
+    def get(self, request):
+        uid = request.query_params.get('uid')
+        token = request.query_params.get('token')
+        business_uid = request.query_params.get('business')
+
+        try:
+            user_id = urlsafe_base64_decode(uid).decode()
+            business_id = urlsafe_base64_decode(business_uid).decode()
+            user = User.objects.get(pk=user_id)
+            business = Business.objects.get(pk=business_id)
+            invitation = Invitation.objects.get(user_id=user,business=business)
+        except User.DoesNotExist:
+            return Response({"error":"user not found"},status=400)
+        except Business.DoesNotExist:
+            return Response({"error":"business not found"},status=400)
+        except Invitation.DoesNotExist:
+            return Response({"error":"Invalid invitation"},status=400)
+        except Exception:
+            return Response({"error": "Invalid link"}, status=400)
+            
+            
+        #alternate check_password(recieved_token, verification.token_hash)
+        received_hash = hashlib.sha256(
+          token.encode()
+          ).hexdigest()
+
+        token_matches = compare_digest(
+        invitation.token,
+        received_hash
+    )
+
+        if token_matches:
+          try:
+            business_role = BusinessRole.objects.get(scope=BusinessRole.Scope.GLOBAL, name="Worker")
+            membership = BusinessMembership.objects.create(user=user,business=business,role=business_role)
+            #logic in case the invitation is accepted
+
+            return Response({"message": "Invitation completed"})
+          except BusinessRole.DoesNotExist:
+              return Response({"error": 'Fallo la asignación de rol del usuario en la empresa'},status=500)
+          except:
+              return Response({"error":"Fallo la integración del usuario en el negocio"},status=500)
+          
+
+        return Response(
+            {"error": "Invalid or expired token"},
+            status=400
+        )

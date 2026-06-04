@@ -1,32 +1,34 @@
-from users.domain.models import User
-from permissions.domain.permissions import *
-from django.contrib.auth.models import Group
-from locations.domain.models import Business
+from permissions.domain.models import BusinessMembership, UserBusinessPermission, BusinessRole
+from django.db import transaction
 
 
+class BusinessMembershipManager:
+    @transaction.atomic
+    def set_businessmembership(self, user_id, business_id, role_id):
+        # Check if the user already has a BusinessMembership
+        business_membership, created = BusinessMembership.objects.select_for_update().get_or_create(
+            user=user_id,
+            business=business_id,
+            defaults={
+              "role":3
+            }
+        )
+        businessrole = BusinessRole.objects.filter(id=role_id).first()
+        if businessrole:  
+          business_membership.role = businessrole
+          business_membership.save()
+          
+          
 
-
-def set_user_business_permission(user: User, business: str, permission: str, action: bool):
-    business = Business.objects.get(id=business)
-    permission = Permission.objects.get(id=permission)
-    ubp, created = UserBusinessPermission.objects.get_or_create(user_key=user,business_key=business,permission=permission)
-    ubp.set_active(action) 
-    
-def set_group_business_permission(group: Group, business: Business, user: User, action: bool):
-            gpb, created = GroupBusinessPermission.objects.get_or_create(group_key=group,business_key=business,user_key=user)
-            gpb.set_active(action)
-
-def set_user_businesses_and_permissions(user : User, permissions: dict[str,dict[str,bool]]):
-            businesses_keys = permissions.keys()
-            for business_key in businesses_keys:
-                permission = permissions[business_key]
-                for permission_key, is_marked in permission.items():
-                    set_user_business_permission(user=user, business=business_key, permission=permission_key, action=is_marked)
-                            
-def set_user_groups(user: User, groups: dict[str,dict[str,bool]]):
-        for business_key, group_instace in groups.items():
-            business = Business.objects.get(id=business_key)
-            for group_key, is_marked in group_instace.items():
-                group = Group.objects.get(id=group_key)
-                set_group_business_permission(group=group, business=business, user=user, action=is_marked)
-               
+    @transaction.atomic
+    def set_userbusinesspermission(self, membership_id, permission_dict):
+        # Check if the user already has a UserBusinessPermission for each permission
+        for permission_id, allowed in permission_dict.items():
+            user_business_permission, created = UserBusinessPermission.objects.select_for_update().get_or_create(
+                membership=membership_id,
+                permission_id=permission_id,
+                defaults={}
+            )
+            
+            user_business_permission.allowed = allowed
+            user_business_permission.save()

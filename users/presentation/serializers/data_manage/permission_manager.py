@@ -1,6 +1,8 @@
 from users.domain.models import User
 from permissions.domain.permissions import *
 from django.contrib.auth.models import Group
+from permissions.models import UserBusinessPermission, BusinessMembership
+from django.contrib.auth.models import Permission
 
 
 def set_group_permissions(group: Group, permissions: dict[str,dict[str,bool]]):
@@ -27,7 +29,7 @@ def get_user_businesses_permissions(user: User, json_format=True):
         return businesses_permissions
 
 def get_user_groups(user: User, json_format=True):
-        user_groups = GroupBusinessPermission.objects.raw("SELECT id, business_key_id, group_key_id FROM permissions_groupbusinesspermission WHERE user_key_id = %s", [user.id])
+        user_groups = BusinessMembership.objects.raw("SELECT id, business_key_id, group_key_id FROM permissions_groupbusinesspermission WHERE user_key_id = %s", [user.id])
         groups_dict = {}
 
         for group in user_groups:
@@ -35,7 +37,7 @@ def get_user_groups(user: User, json_format=True):
 
             for group in user_groups:
                 nombre_grupo = group.group_key_id if json_format else Group.objects.get(id=group.group_key_id).name
-                groups_dict[str(group.business_key_id)][nombre_grupo] = group.active
+                groups_dict[str(group.business_key_id)][nombre_grupo] = group.is_active
              
         
         return groups_dict

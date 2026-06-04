@@ -3,7 +3,7 @@ from users.presentation.serializers.data_manage.set_businesses import *
 from users.presentation.serializers.data_manage.permission_manager import *
 from users.presentation.serializers.validators.validators import *
 from users.presentation.serializers.token_generator import send_verification_email 
-from users.presentation.api.validators import validate_name, validate_password, validate_last_name
+from users.presentation.serializers.validators.validators import validate_name, validate_password, validate_last_name
 from rest_framework.validators import UniqueValidator
 from users.domain.models import AuthProvider, EmailVerificationToken
 
@@ -59,7 +59,6 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             email_sent = send_verification_email(
               user,raw_token
           )
-            print('email_sent: ',email_sent)
             
           return user
       
