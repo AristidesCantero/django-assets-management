@@ -49,6 +49,7 @@ THIRD_APPS = [
     'corsheaders',
     'simple_history',
     'drf_yasg',
+    'django_extensions',
     
 ]
 

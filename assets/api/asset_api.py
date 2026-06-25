@@ -1,7 +1,7 @@
 from assets.domain.models import *
 from assets.serializers.general_serializers import *
 from rest_framework.generics import RetrieveUpdateDestroyAPIView, ListCreateAPIView
-from permissions.domain.permissions import *
+from permissions.domain.permission_classes.permissions import *
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework import status

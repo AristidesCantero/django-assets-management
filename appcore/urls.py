@@ -35,8 +35,7 @@ urlpatterns = [
     path('protocol/', include('protocol.presentation.urls')),
     path('locations/', include('locations.urls')),
     path('users/', include('users.presentation.urls')),
-    path('permisos/', include('permissions.presentation.urls')),
-
+    path('permissions/', include('permissions.presentation.urls')),
     path('swagger<format>/', schema_view.without_ui(cache_timeout=0), name='schema-json'),
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),

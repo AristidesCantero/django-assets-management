@@ -13,3 +13,7 @@ venv/
 arquitectura.txt
 *.yaml
 !docker_compose.yaml
+models.dot
+pathlib.py
+tools
+locations/management
