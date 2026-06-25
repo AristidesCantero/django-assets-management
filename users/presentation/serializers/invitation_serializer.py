@@ -29,15 +29,33 @@ class UserInvitationSerializer(serializers.Serializer):
       return user
 
 
+    def validate(self, data):
+        receiver = data["receiver"]
+        business = data["business"]
+        
+        invitation = Invitation.objects.filter(user=receiver.id, business=business).first()
+        if invitation.is_accepted:
+          raise serializers.ValidationError("User already invited and accepted in business")
+        
+        data['invitation'] = invitation
+        
+        return data
+        
+
     def create(self, validated_data):
         sender = self.context.get('sender')
         receiver = validated_data["receiver"]
         business = validated_data["business"]
-        print('received business: ',business)
-
-        # Generate token and expiration using InvitationService
-        raw_token = Invitation.generate_token(user=receiver,business=business)
+        invitation = validated_data['invitation'] 
         
+        
+        resent = False
+        if invitation:
+          raw_token = Invitation.refresh_old_token(user=receiver)
+          resent=True
+        else:
+          raw_token = Invitation.generate_token(user=receiver,business=business)
+          
         email_sent = send_invitation_email(receiver,raw_token,business,sender)
         
-        return receiver
+        return receiver, resent

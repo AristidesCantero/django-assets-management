@@ -67,7 +67,7 @@ class TokenInvitationGenerator(BaseTokenGenerator):
         business_name = business.name
         inviter_name = inviter_user.name
         subject = "Assets App verificación de usuario"
-        render_dict = {invitation_url,business_name, inviter_name, user_name
+        render_dict = {'invitation_url':invitation_url,'business_name':business_name, 'inviter_name':inviter_name, 'user_name':user_name
         }
 
         #send the email with parent class 
@@ -85,8 +85,8 @@ def send_invitation_email(user,token, business, inviter):
       
     uid = generate_uid(user)
     business_uid = generate_uid(business)
-    token_generator = TokenInvitationGenerator()
-    return token_generator.send_mail(user, token, uid, business_uid, business, inviter)
+    token_generator = TokenInvitationGenerator('invitation_template.html')
+    return token_generator.send_email(user, token, uid, business_uid, business, inviter)
     
 
 def send_verification_email(user, token):
@@ -96,4 +96,4 @@ def send_verification_email(user, token):
     uid = generate_uid(user)
 
     token_generator = TokenGenerator()
-    return token_generator.send_mail(user, token, uid)
+    return token_generator.send_email(user, token, uid)

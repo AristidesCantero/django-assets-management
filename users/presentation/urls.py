@@ -2,6 +2,7 @@ from django.urls import path
 
 from users.presentation.api.group_api import *
 from users.presentation.api.user_api import *
+from users.presentation.api.invitation_api import *
 from users.presentation.api.session_token_api import *
 
 

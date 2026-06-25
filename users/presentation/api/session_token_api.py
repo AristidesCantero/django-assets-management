@@ -1,6 +1,6 @@
 from rest_framework_simplejwt.views import TokenBlacklistView
 from rest_framework_simplejwt.views import TokenObtainPairView,TokenRefreshView
-from users.presentation.serializers.tokenserializer import TokenBlacklistSerializer
+from users.presentation.serializers.tokenserializer import TokenBlacklistSerializer, CustomTokenObtainPairSerializer
 from permissions.domain.authentication import CookieJWTAuthentication
 from rest_framework.response import Response
 from rest_framework import status
@@ -10,13 +10,16 @@ class CustomizedTokenObtainPairView(TokenObtainPairView):
     """
     Override the default TokenObtainPairView to set access/refresh tokens as HttpOnly cookies.
     """
+    
+    serializer_class = CustomTokenObtainPairSerializer
+    
     def post(self, request, *args, **kwargs):
         # Get tokens using the default TokenObtainPairView logic
         serializer = self.get_serializer(data=request.data)
-        try:
-            serializer.is_valid(raise_exception=True)
-        except Exception as e:
-            return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+        #try:
+        serializer.is_valid(raise_exception=True)
+        #except Exception as e:
+        #    return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
  
         # Extract tokens from the serializer
         access_token = serializer.validated_data["access"]

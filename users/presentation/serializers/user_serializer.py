@@ -99,7 +99,7 @@ class UserSerializer(serializers.ModelSerializer):
     
     def representation(self, context, user: User, method: str, json_format=True):
         
-            if method in ['GET','PUT','PATCH']:
+            if False and method in ['GET','PUT','PATCH']:
                 context['permissions'] = get_user_businesses_permissions(user, json_format=json_format),
                 context['groups'] = get_user_groups(user, json_format=json_format),
             return context

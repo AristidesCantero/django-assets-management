@@ -1,4 +1,5 @@
-from rest_framework_simplejwt.serializers import TokenBlacklistSerializer as BaseTokenBlacklistSerializer
+from rest_framework_simplejwt.serializers import TokenBlacklistSerializer as BaseTokenBlacklistSerializer, TokenObtainPairSerializer
+from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
 
@@ -35,3 +36,20 @@ class TokenBlacklistSerializer(BaseTokenBlacklistSerializer):
         Validate the refresh token and prepare for blacklisting.
         """
         return attrs
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Overrides TokenObtainPairSerializer to include extra verification for user when login"""
+    @classmethod
+    def get_token(cls, user):
+        return super().get_token(user)
+
+    def validate(self, attrs):
+        data = super().validate(attrs)
+
+        if not self.user.email_verified:
+            raise serializers.ValidationError(
+                "User account pending of confirmation."
+            )
+
+        return data

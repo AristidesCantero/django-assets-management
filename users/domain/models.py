@@ -11,6 +11,8 @@ import hashlib
 import secrets
 
 
+def get_business_membership_model():
+  return apps.get_model('permissions', 'BusinessMembership')
 
 # Create your models here.
 
@@ -51,7 +53,18 @@ class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
       business_membership = self.get_user_membership(user_id,business_id)
       return business_membership.user if business_membership else None
 
+    def get_user_membership(self, user_id, business_id):
+      """Returns the user membership for a given user and business"""
+      BusinessMembership = get_business_membership_model()
+      return BusinessMembership.objects.filter(user_id=user_id, business_id=business_id).first()
 
+
+    def get_users_of_business(self, business_id):
+      """from a business id returns a queryset of User that belongs to the business"""
+      BusinessMembership = get_business_membership_model()
+      
+      business_users_ids = BusinessMembership.objects.filter(business_id=business_id).values_list('user_id', flat=True)
+      return User.objects.filter(id__in=business_users_ids)
 
 
     def _create_user(self, username, email, name, last_name, password, is_staff, is_superuser, **extra_fields):
@@ -223,9 +236,7 @@ class EmailVerificationToken(models.Model):
 #invitation class only for existing users, change user for emails when moving to Saas models
 class Invitation(models.Model):
     class Meta:
-      constraints = [
-        
-      ]
+      unique_together = ("user","business")
   
     business = models.ForeignKey("locations.Business", on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -257,7 +268,8 @@ class Invitation(models.Model):
       
       
     def refresh_old_token(user):
-      existing_token = EmailVerificationToken.objects.filter(user_id=user.id).first()
+      existing_token = Invitation.objects.filter(user_id=user.id).first()
+      print(existing_token.expires_at)
       
       if not existing_token:
         return None
@@ -269,8 +281,9 @@ class Invitation(models.Model):
           raw_token.encode()
       ).hexdigest()
       
-      existing_token.token_hash = token_hash
+      existing_token.token = token_hash
       existing_token.expires_at = timezone.now() + timedelta(hours=24)
       existing_token.save()
       
+      print(existing_token.expires_at)
       return raw_token

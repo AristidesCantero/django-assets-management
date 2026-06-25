@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import Permission
 from rest_framework.validators import UniqueValidator, ValidationError
-from permissions.domain.permissions import *
+from permissions.domain.permission_classes.permissions import *
 from permissions.domain.models import BusinessMembership
 from rest_framework import serializers
 from users.domain.models import User

@@ -2,15 +2,13 @@ from rest_framework.response import Response
 from rest_framework.generics import *
 from rest_framework import status
 from users.presentation.serializers.user_serializer import UserSerializer
-from users.presentation.serializers.invitation_serializer import UserInvitationSerializer
 from users.presentation.serializers.register_serializers import UserRegisterSerializer
 from users.domain.models import User, EmailVerificationToken, Invitation
-from permissions.domain.permissions import *
+from permissions.domain.permission_classes.permissions import *
 from permissions.domain.authentication import CookieJWTAuthentication
 from permissions.domain.models import BusinessRole
 from django.db import connection
 from django.core.mail import send_mail
-from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_decode
 from django.template.loader import render_to_string
 from django.conf import settings
@@ -92,15 +90,18 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
 class UserListAPIView(RetrieveAPIView):
     serializer_class = UserSerializer
     authentication_classes = [CookieJWTAuthentication]
-    permission_classes = [permissionsToCheckUser]
+    permission_classes = [permissionsToCheckUsers]
     http_method_names = ["get"]
     
     def get_queryset(self, business_id) -> QuerySet[User]:
+        
         user_data = User.objects.get_business_users(business_id)
         return user_data
 
     def get(self, request, business_id):
         try:
+            if not request.business:
+              return Response({'message':'invalid business ID'}, status=status.HTTP_404_NOT_FOUND)
             user = self.get_queryset(business_id=business_id)
             response_data = {
                 'data': self.serializer_class(user,context={'request': request},many=True).data
@@ -145,6 +146,7 @@ class UserRegisterConfirmationAPIView(RetrieveAPIView):
             
             email_token = EmailVerificationToken.objects.filter(user_id=user_id).first()
             
+            
         except User.DoesNotExist:
           return Response({"error":"user not found"},status=400)
         
@@ -154,6 +156,9 @@ class UserRegisterConfirmationAPIView(RetrieveAPIView):
                 {"error": "Invalid link"},
                 status=400
             )
+            
+        if user.email_verified:
+              return Response({"message":"User already verified"}, status=status.HTTP_208_ALREADY_REPORTED)
             
             
         #alternate check_password(recieved_token, verification.token_hash)
@@ -165,8 +170,6 @@ class UserRegisterConfirmationAPIView(RetrieveAPIView):
         email_token.token_hash,
         received_hash
     )
-        print(email_token.token_hash)
-        print(received_hash)
 
         if token_matches:
             user.is_active = True
@@ -204,34 +207,6 @@ class MailTesting(RetrieveUpdateDestroyAPIView):
         return Response({'message':'mail send, verify'}, status=status.HTTP_200_OK)
 
 
-    
-    
-class InvitationAPIView(RetrieveUpdateDestroyAPIView):
-    serializer_class = UserInvitationSerializer
-    authentication_classes = [CookieJWTAuthentication]
-    permission_classes = [permissionToInviteUsers]
-    allowed_methods = ['post']
-  
-    def post(self, request):
-      
-        sender_user = request.user
-
-        serializer = self.serializer_class(
-            data=request.data, context={"sender":sender_user}
-        )
-        
-        if serializer.is_valid(raise_exception=True):      
-          serializer.save()
-          return Response(
-              {"message": "Invitation email sent"},
-              status=status.HTTP_201_CREATED
-          )
-        
-        return Response({'error':'Failed send verification email'}, status=status.HTTP_400_BAD_REQUEST)
-
-
-
-class InvitationAcceptAPIView(RetrieveAPIView):
     allowed_methods = ['get']
 
     def get(self, request):

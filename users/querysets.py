@@ -48,34 +48,28 @@ def extract_query_data(raw, query: str, row_names: list[str]):
 
 
 
-
-class BusinessQuerySet(models.QuerySet):
-
-    #conseguir listado de empresas en las que el usuario cuenta con permisos
-    def user_allowed_businesses(user, request) -> list[int]:
-        required_permission = f"{method_to_action[request.method]}_{Business._meta.model_name}"
-        permission = get_permission_by_codename('auth', 'Permission', required_permission)
-        businesses_allowed = UserQuerySet().get_business_where_user_has_userpermission(user=user, permission=permission)
-        return businesses_allowed
-    
-    #check the businesses which the user has the permission for the model and based in the method
-
-
 class UserQuerySet(models.QuerySet):
   
-    def get_user_membership(self, user, business_id) -> BusinessMembership | None:
+
+    def get_user_memberships(self, user_id) -> QuerySet:
       BusinessMembership = get_businessmembership()
-      user_membership = BusinessMembership.objects.filter(user=user, business=business_id).first()
+      user_membership = BusinessMembership.objects.filter(user=user_id)
+      return user_membership
+  
+  
+    def get_user_membership(self, user_id, business_id) -> BusinessMembership | None:
+      BusinessMembership = get_businessmembership()
+      user_membership = BusinessMembership.objects.filter(user=user_id, business=business_id).first()
       return user_membership
     
-    def get_userbusinessrole(self, user, business_id) -> BusinessRole | None :
+    def get_userbusinessrole(self, user_id, business_id) -> BusinessRole | None :
       BusinessRole = get_businessrole()
-      user_role = BusinessRole.objects.filter(business=business_id, user=user).first()
+      user_role = BusinessRole.objects.filter(business=business_id, user=user_id).first()
       return user_role
       
     
-    def has_grouppermission(self, user, business_id, permission) -> bool:
-      user_membership = self.get_user_membership(user, business_id)
+    def has_grouppermission(self, user_id, business_id, permission) -> bool:
+      user_membership = self.get_user_membership(user_id, business_id)
       if not user_membership:
         return False
       
@@ -88,9 +82,9 @@ class UserQuerySet(models.QuerySet):
       return False
       
       
-    def has_userbusinesspermission(self, user_membership, permission):
+    def has_userbusinesspermission(self, user_membership_id, permission_id):
        UserBusinessPermission = get_userbusinesspermission()
-       user_permission = UserBusinessPermission.objects.filter(permission=permission,membership=user_membership).first()
+       user_permission = UserBusinessPermission.objects.filter(permission=permission_id,membership=user_membership_id).first()
        return user_permission
      
      

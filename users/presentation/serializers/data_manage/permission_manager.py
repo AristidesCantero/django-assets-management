@@ -1,5 +1,5 @@
 from users.domain.models import User
-from permissions.domain.permissions import *
+from permissions.domain.permission_classes.permissions import *
 from django.contrib.auth.models import Group
 from permissions.models import UserBusinessPermission, BusinessMembership
 from django.contrib.auth.models import Permission
