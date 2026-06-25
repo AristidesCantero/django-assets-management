@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from locations.serializers.headquarter_serializer import HeadquartersListSerializer, HeadquartersSerializer
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from permissions.domain.authentication import CookieJWTAuthentication
-from permissions.domain.permissions import permissionToCheckModel
+from permissions.domain.permission_classes.permissions import permissionToCheckModel
 from locations.querysets import HeadquartersQuerySet
 from locations.models import Headquarters
 

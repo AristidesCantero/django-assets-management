@@ -2,6 +2,7 @@ from django.db import models
 from django.apps import apps
 from users.querysets import UserQuerySet
 from users.domain.models import User
+from permissions.domain.models import BusinessMembership
 
 method_to_action = {
     'GET': 'view',
@@ -22,6 +23,10 @@ def get_user_headquarters(self, request) -> dict:
 
 
 
+
+class BusinessQueryset(models.QuerySet):
+    def get_user_businesses(self, user_id):
+      memberships = BusinessMembership.objects.filter(user=user_id).values_list()
 
 
 class HeadquartersQuerySet(models.QuerySet):

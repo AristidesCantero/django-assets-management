@@ -5,7 +5,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework import status
 from rest_framework.authentication import TokenAuthentication, SessionAuthentication, BasicAuthentication
 from permissions.domain.authentication import CookieJWTAuthentication
-from permissions.domain.permissions import permissionToCheckModel
+from permissions.domain.permission_classes.permissions import permissionToCheckModel
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from locations.domain.models import Headquarters, Business, InternalLocation, UserBusinessMember
 from locations.presentation.serializers import *

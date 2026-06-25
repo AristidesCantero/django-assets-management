@@ -5,7 +5,7 @@ from locations.api.headquarter_api import *
 
 urlpatterns = [
     path('businesses/',BusinessListAPIView.as_view(),name='business_list_api'),
-    path('business/<int:pk>/',BusinessAPIView.as_view(),name='business_detail_api'),
+    path('business/<int:business_id>/',BusinessAPIView.as_view(),name='business_detail_api'),
     path('headquarters/', HeadquarterListAPIView.as_view(), name='headquarter_list_api'),
     path('headquarters/<int:pk>', HeadquarterListAPIView.as_view(), name='headquarter_list_api_business'),
     path('headquarter/<int:pk>/', HeadquarterAPIView.as_view(), name='headquarter_detail_api'),
