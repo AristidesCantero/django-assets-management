@@ -1,5 +1,4 @@
 from rest_framework.permissions import DjangoModelPermissions
-from rest_framework.request import Request
 from permissions.domain.decorators.user_decorator import *
 from permissions.domain.permission_utility.permissions_methods import *
 from locations.domain.models import Business
@@ -21,7 +20,7 @@ method_to_action = {
 }
 
 
-def user_has_level_over_user(valutated_user: User, consulted_user: User):
+def user_has_level_over_user(valutated_user: User, consulted_user: User) -> bool:
     try:
       v_user_mship = BusinessMembership.objects.get(id=valutated_user.id)
       c_user_mrship = BusinessMembership.objects.get(id=consulted_user.id)
@@ -32,6 +31,14 @@ def user_has_level_over_user(valutated_user: User, consulted_user: User):
       return True
     
     return False
+    
+    
+def user_is_anonymous_or_empty(user):
+  if not user or user.is_anonymous:
+    return True
+  return False
+    
+
     
     
 class permissionToInviteUsers(DjangoModelPermissions):
@@ -64,14 +71,24 @@ class permissionsToCheckUser(DjangoModelPermissions):
     \n 2. Consulted user and business exists 
     \n 3. User has clearance on business and over the user"""
     
-    def has_permission(self, request:Request, view):
+    def has_permission(self, request, view):
         
         consulted_u_id = view.kwargs.get("user_id")
         business_id = view.kwargs.get("business_id")
+        print(consulted_u_id)
+        print(business_id)
         user = request.user
         consulted_user = User.objects.filter(id=consulted_u_id).first()
         business = Business.objects.filter(id=business_id).first()
+        request.business = business
         
+        non_existing_user = user_is_anonymous_or_empty(user)
+        
+        if non_existing_user:
+          return False
+        
+        if not consulted_user or not business:
+          return False
         #check superuser
         #business and consulted user (superuser only for superuser)
         #user business clearance
@@ -109,15 +126,15 @@ class permissionsToCheckUsers(DjangoModelPermissions):
       \n This permission is only for read purposes, any method external to GET will be forbidden"""
       
   
-    def has_permission(self, request:Request, view):
+    def has_permission(self, request, view):
         
         if not request.method == 'GET':
           return False
         
         business_id = view.kwargs.get("business_id")
-        
         user = request.user
         business = Business.objects.filter(id=business_id).first()
+        request.business = business
         
         if user.is_superuser:
           return True
@@ -156,6 +173,9 @@ class permissionToCheckModel(DjangoModelPermissions):
         user = request.user
         business_id = view.kwargs.get("business_id")
         
+        if user.is_superuser:
+          return True
+        
         if not business_id:
           return False
         
@@ -168,7 +188,19 @@ class permissionToCheckModel(DjangoModelPermissions):
         return True
         
     
-    
+class permissionOverBusinesses(DjangoModelPermissions):
+  pass
+
+
+class permissionOverBusiness(DjangoModelPermissions):
+  pass
+
+class permissionToCheckInternalLocation(DjangoModelPermissions):
+  pass
+
+class permissionToCheckHeadquarters(DjangoModelPermissions):
+  pass
+
     
 
 

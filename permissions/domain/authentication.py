@@ -1,5 +1,6 @@
 
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.exceptions import AuthenticationFailed
 from django.http.request import HttpHeaders
 from typing import Optional, TypeVar
 import re
@@ -8,6 +9,15 @@ class CookieJWTAuthentication(JWTAuthentication):
     """
     Custom JWT authentication class to extract the access token from an HttpOnly cookie.
     """
+    
+    def get_user(self, validated_token):
+        user = super().get_user(validated_token)
+        if not user.email_verified:
+            raise AuthenticationFailed(
+                "User pending for confirmation."
+            )
+        return user
+    
     def authenticate(self, request):
         authentication = super().authenticate(request)
         #print(authentication)
