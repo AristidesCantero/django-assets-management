@@ -39,7 +39,7 @@ class BusinessMembershipSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BusinessMembership
-        fields = ['id', 'user', 'business', 'user_role_id', 'permissions', 'created_at']
+        fields = "__all__"
 
 
     def update(self, instance, validated_data):
@@ -79,6 +79,24 @@ class BusinessMembershipSerializer(serializers.ModelSerializer):
             if perm_value not in [0, 1, 2]:
                 raise serializers.ValidationError(f"Value {perm_value} is invalid for permission {perm_id}. Valid values are 0, 1, or 2.")
         return value
+      
+      
+    def to_representation(self, instance):
+        print(instance)
+        try:
+          user_role = BusinessRole.objects.get(id=instance.role_id)
+        except:
+          user_role = None
+          
+        
+        data = {
+          "id": instance.id,
+          "user": instance.user_id,
+          "user_role": user_role.name if user_role else None,
+          "joined_at": instance.joined_at,
+        }
+        data['user_permissions'] = UserBusinessPermission.objects.filter(membership=instance).values('permission', 'allowed')
+        return data
       
 class UserBusinessPermissionSerializer(serializers.ModelSerializer):
     class Meta:

@@ -75,8 +75,6 @@ class permissionsToCheckUser(DjangoModelPermissions):
         
         consulted_u_id = view.kwargs.get("user_id")
         business_id = view.kwargs.get("business_id")
-        print(consulted_u_id)
-        print(business_id)
         user = request.user
         consulted_user = User.objects.filter(id=consulted_u_id).first()
         business = Business.objects.filter(id=business_id).first()
@@ -88,7 +86,7 @@ class permissionsToCheckUser(DjangoModelPermissions):
           return False
         
         if not consulted_user or not business:
-          return False
+          return True
         #check superuser
         #business and consulted user (superuser only for superuser)
         #user business clearance
