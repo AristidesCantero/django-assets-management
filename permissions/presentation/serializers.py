@@ -34,55 +34,79 @@ class BusinessMembershipsSerializer(serializers.ModelSerializer):
 
 
 class BusinessMembershipSerializer(serializers.ModelSerializer):
-    user_role_id = serializers.PrimaryKeyRelatedField(queryset=BusinessRole.objects.all(), required=False)
+    role_id = serializers.PrimaryKeyRelatedField(queryset=BusinessRole.objects.all(), required=False)
     permissions = serializers.DictField(child=serializers.IntegerField(), required=False)
+    is_active = serializers.BooleanField(required=False)
+    
 
     class Meta:
         model = BusinessMembership
-        fields = "__all__"
+        fields = ["role_id", "is_active","permissions"]
 
 
     def update(self, instance, validated_data):
         permissions_data = validated_data.pop('permissions', {})
-        instance.user_role_id = validated_data.get('user_role_id', instance.user_role_id)
+        business_role = validated_data.pop('role_id', instance.role_id)
+        
+        
+        instance.role = business_role 
+        instance.is_active = validated_data.get('is_active', instance.is_active)
         
         for perm_id, value in permissions_data.items():
-            if value == 0:
+            user_permission = UserBusinessPermission.objects.filter(membership=instance, permission_id=perm_id).first()
+            
+            
+            if value[0] == 0:
                 # Remove permission
-                instance.permissions.filter(permission_id=perm_id).delete()
-            elif value == 1:
+                if user_permission:
+                    user_permission.delete()
+            elif value[0] == 1:
                 # Allow permission
-                instance.permissions.create(permission_id=perm_id, allowed=True)
-            elif value == 2:
+                if user_permission:
+                    user_permission.allowed = True
+                    user_permission.save()
+                else:
+                    UserBusinessPermission.objects.create(permission_id=value[1].id, allowed=True,membership=instance)
+            elif value[0] == 2:
                 # Deny permission
-                instance.permissions.create(permission_id=perm_id, allowed=False)
+                if user_permission:
+                    user_permission.allowed = False
+                    user_permission.save()
+                else:
+                    UserBusinessPermission.objects.create(permission_id=value[1].id, allowed=False,membership=instance)
         
         instance.save()
         return instance
       
-    def validate_user_role_id(self, value):
+    def validate_role_id(self, value):
         business_id = self.context.get('business_id')
-        if business_id is None:
-            if value is not None and value.business_id is not None:
-                raise serializers.ValidationError("The business_id is not provided, but the role is linked to a business.")
-        else:
-            if value is not None and value.business_id != business_id:
-                raise serializers.ValidationError("The role's business_id does not match the provided business_id.")
-        return value
+        business_role = value
+              
+        if (business_role.business_id) and (business_role.business_id != business_id):
+          raise serializers.ValidationError(f"Role ID {value} does not belong to this business.")
+        
+        return business_role
       
     def validate_permissions(self, value):
-        valid_permission_ids = set(Permission.objects.values_list('id', flat=True))
-        #TO DO: change this method for intersections
-        for perm_id, perm_value in value.items():
-            if perm_id not in valid_permission_ids:
-                raise serializers.ValidationError(f"Permission ID {perm_id} is invalid.")
-            if perm_value not in [0, 1, 2]:
-                raise serializers.ValidationError(f"Value {perm_value} is invalid for permission {perm_id}. Valid values are 0, 1, or 2.")
-        return value
+        permissions = Permission.objects.all()
+        valid_permission_ids = set(permissions.values_list('id', flat=True))
+        permissions_dict = {}
+
+
+        invalid_permissions = set(int(k) for k in value.keys()) - valid_permission_ids
+        if invalid_permissions:
+            raise serializers.ValidationError(f"Invalid permission IDs: {', '.join(map(str, invalid_permissions))}")
+        
+        invalid_values = [k for k, v in value.items() if v not in [0, 1, 2]]
+        if invalid_values:
+            raise serializers.ValidationError(f"Invalid values for permissions: {', '.join(invalid_values)}")
+          
+        value_to_permissions_dict = {int(k): [v, permissions.filter(id=k).first()] for k, v in value.items()}
+        
+        return value_to_permissions_dict
       
-      
+
     def to_representation(self, instance):
-        print(instance)
         try:
           user_role = BusinessRole.objects.get(id=instance.role_id)
         except:

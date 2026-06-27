@@ -65,7 +65,7 @@ class UserBusinessPermission(BaseModel):
     class Meta:
         unique_together = ('membership', 'permission')
         
-    membership = models.ForeignKey(BusinessMembership,on_delete=models.CASCADE,default=3)
+    membership = models.ForeignKey(BusinessMembership,on_delete=models.CASCADE)
     permission = models.ForeignKey(Permission,on_delete=models.CASCADE)
     allowed = models.BooleanField(default=True)
 

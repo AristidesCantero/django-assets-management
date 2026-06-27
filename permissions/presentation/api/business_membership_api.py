@@ -30,12 +30,11 @@ class BusinessMembershipDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = BusinessMembershipSerializer
     authentication_classes = [CookieJWTAuthentication]
     permission_classes = [IsAuthenticated, permissionsToCheckUser]
-    allowed_http_methods = ["GET", "POST"]
+    allowed_http_methods = ["GET", "PATCH"]
 
     def get_queryset(self):
         business_id = self.kwargs.get('business_id')
         user_id = self.kwargs.get('user_id')
-        
         return BusinessMembership.objects.get(business_id=business_id, user_id=user_id)
       
     def get(self, request, business_id, user_id):
@@ -48,4 +47,16 @@ class BusinessMembershipDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
       response_data = {}
       response_data['data'] = serializer.data
       return Response(response_data, status= status.HTTP_200_OK)
+    
+    def patch(self, request, business_id, user_id):
+      try:
+        queryset = self.get_queryset()
+      except BusinessMembership.DoesNotExist:
+        return Response({'message':'User membership invalid'}, status=status.HTTP_404_NOT_FOUND)
       
+      serializer = self.serializer_class(queryset, data=request.data, context={'business_id': business_id})
+      
+      if serializer.is_valid():
+          serializer.save()
+          return Response(serializer.data, status=status.HTTP_200_OK)
+      return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
