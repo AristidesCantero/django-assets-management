@@ -118,11 +118,15 @@ class User(AbstractUser):
     def get_plural(self):
         return 'users'
       
-    def soft_delete(self):
+    def deactivate(self):
       self.deleted_at = timezone.now()
       self.is_active = False
       self.save(update_fields=["deleted_at","is_active"])
-
+      
+    def activate(self):
+      self.deleted_at = None
+      self.is_active = True
+      self.save(update_fields=["deleted_at","is_active"])
 
 
 

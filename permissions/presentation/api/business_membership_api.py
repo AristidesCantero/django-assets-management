@@ -15,7 +15,7 @@ class BusinessMembershipListCreateAPIView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         business_id = self.kwargs.get('business_id')
-        return BusinessMembership.objects.filter(business_id=business_id)
+        return BusinessMembership.objects.filter(business_id=business_id, user__is_active=True, is_active=True)
       
     def get(self, request, business_id):
       queryset = self.get_queryset()
@@ -35,13 +35,16 @@ class BusinessMembershipDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         business_id = self.kwargs.get('business_id')
         user_id = self.kwargs.get('user_id')
-        return BusinessMembership.objects.get(business_id=business_id, user_id=user_id)
+        business_membership = BusinessMembership.objects.get(business_id=business_id, user_id=user_id, user__is_active=True, is_active=True)
+        return business_membership
       
     def get(self, request, business_id, user_id):
       try:
         queryset = self.get_queryset()
+        if not queryset:
+          raise BusinessMembership.DoesNotExist
       except BusinessMembership.DoesNotExist:
-        return Response({'message':'User membership invalid'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'message':'User membership not found'}, status=status.HTTP_404_NOT_FOUND)
         
       serializer = self.serializer_class(queryset, context={'business_id':business_id})
       response_data = {}
@@ -60,3 +63,12 @@ class BusinessMembershipDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
           serializer.save()
           return Response(serializer.data, status=status.HTTP_200_OK)
       return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, business_id, user_id):
+      try:
+        queryset = self.get_queryset()
+      except BusinessMembership.DoesNotExist:
+        return Response({'message':'User membership invalid'}, status=status.HTTP_404_NOT_FOUND)
+      
+      queryset.deactivate()
+      return Response(status=status.HTTP_204_NO_CONTENT)

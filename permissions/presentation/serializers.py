@@ -32,11 +32,9 @@ class BusinessMembershipsSerializer(serializers.ModelSerializer):
         return data
 
 
-
 class BusinessMembershipSerializer(serializers.ModelSerializer):
     role_id = serializers.PrimaryKeyRelatedField(queryset=BusinessRole.objects.all(), required=False)
     permissions = serializers.DictField(child=serializers.IntegerField(), required=False)
-    is_active = serializers.BooleanField(required=False)
     
 
     class Meta:
@@ -44,17 +42,22 @@ class BusinessMembershipSerializer(serializers.ModelSerializer):
         fields = ["role_id", "is_active","permissions"]
 
 
+    def soft_delete(self, instance, validated_data):
+        instance.is_active = False
+        instance.save()
+        return instance
+
     def update(self, instance, validated_data):
         permissions_data = validated_data.pop('permissions', {})
         business_role = validated_data.pop('role_id', instance.role_id)
         
         
         instance.role = business_role 
-        instance.is_active = validated_data.get('is_active', instance.is_active)
+        if instance.role.level >= 100:
+          raise serializers.ValidationError("Cannot change role for a owner level user.")
         
         for perm_id, value in permissions_data.items():
             user_permission = UserBusinessPermission.objects.filter(membership=instance, permission_id=perm_id).first()
-            
             
             if value[0] == 0:
                 # Remove permission

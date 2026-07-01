@@ -81,8 +81,8 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
         try:
             user = self.get_queryset(user_id=user_id, business_id=business_id)
             serializer = self.serializer_class(user, context={'request': request,'user_id':user_id, 'business_id':business_id})
-            serializer.update(user, {"is_active": False})
-            return Response({'detail': 'User has been deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
+            serializer.soft_delete(user, {"is_active": False})
+            return Response({'detail': 'User has been deleted successfully.'}, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({'detail': 'User has not been found.'}, status=status.HTTP_404_NOT_FOUND)
     

@@ -58,6 +58,14 @@ class BusinessMembership(models.Model):
             )
 
         super().save(*args, **kwargs)
+    
+    def deactivate(self, *args, **kwargs):
+      self.is_active = False
+      self.save(update_fields=['is_active'])
+      
+    def activate(self, *args, **kwargs):
+      self.is_active = True
+      self.save(update_fields=['is_active'])
         
 
 #Clas to manage the bussinesses the user can access

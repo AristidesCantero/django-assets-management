@@ -59,13 +59,12 @@ class UserSerializer(serializers.ModelSerializer):
     
   
 
-    def update(self, instance, validated_data):
+    def soft_delete(self, instance, validated_data):
         if instance.is_superuser:
             raise serializers.ValidationError("Superadmins cannot be deactivated.")
         if BusinessMembership.objects.filter(user=instance, role__level=100).exists():
             raise serializers.ValidationError("Business owners cannot be deactivated.")
-        instance.is_active = False
-        instance.save()
+        instance.deactivate()
         return instance
     #create validations
 
