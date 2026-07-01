@@ -1,7 +1,7 @@
 from rest_framework.response import Response
 from rest_framework.generics import *
 from rest_framework import status
-from users.presentation.serializers.user_serializer import UserSerializer
+from users.presentation.serializers.user_serializer import UserSerializer, UserDeactivatedSerializer
 from users.presentation.serializers.register_serializers import UserRegisterSerializer
 from users.domain.models import User, EmailVerificationToken, Invitation
 from permissions.domain.permission_classes.permissions import *
@@ -17,25 +17,37 @@ import hashlib
 
 
 
+class UserDeactivatedAPIView(GenericAPIView):
+    serializer_class = UserDeactivatedSerializer
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [SuperAdminAccess]
+    http_method_names = ["get", "patch"]
+  
+  
+    def get_queryset(self,user_id):
+        return User.objects.get(id=user_id,is_active=False)
 
-def sqlQuery(query: str, params: tuple = ()):
-        with connection.cursor() as cursor:
-            cursor.execute(query, params)
-            columns = [col[0] for col in cursor.description]
-            results = [
-                dict(zip(columns, row))
-                for row in cursor.fetchall()
-            ]
-        return results
+    def get(self, request, user_id):
+        try:
+            user = self.get_queryset(user_id)
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = self.serializer_class(user, context={'request': request})
+          
+        return Response(serializer.data)
 
+    def patch(self, request, user_id):
+        try:
+            user = self.get_queryset(user_id)
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
-def path_has_primary_key(path: str) -> bool:
-    segments = path.strip('/').split('/')
-    primary_key = segments[-1]
-    return primary_key if primary_key.isdigit() else None
+        user.activate()
 
-
-
+        return Response({"message": "User status updated successfully.", "user_status":user.is_active}, status=status.HTTP_200_OK)
+      
+      
+      
 class UserAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = UserSerializer
     authentication_classes = [CookieJWTAuthentication]
@@ -79,12 +91,12 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
 
     def delete(self, request, user_id, business_id):
         try:
-            user = self.get_queryset(user_id=user_id, business_id=business_id)
-            serializer = self.serializer_class(user, context={'request': request,'user_id':user_id, 'business_id':business_id})
-            serializer.soft_delete(user, {"is_active": False})
-            return Response({'detail': 'User has been deleted successfully.'}, status=status.HTTP_200_OK)
+            user = self.get_queryset(user_id,business_id)
         except User.DoesNotExist:
-            return Response({'detail': 'User has not been found.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+        user.deactivate()
+
+        return Response({"message": "User status updated successfully.", "user_status":user.is_active}, status=status.HTTP_200_OK)
     
 
 

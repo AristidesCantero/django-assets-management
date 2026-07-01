@@ -39,6 +39,12 @@ def user_is_anonymous_or_empty(user):
   return False
     
 
+
+class SuperAdminAccess(DjangoModelPermissions):
+  """Class to allow access to SuperAdmin level APIs"""
+  def has_permission(self, request, view):
+    user = request.user
+    return user.is_superuser
     
     
 class permissionToInviteUsers(DjangoModelPermissions):

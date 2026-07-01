@@ -24,4 +24,6 @@ urlpatterns = [
     #apis de invitacion 
     path('send-invitation/', InvitationAPIView.as_view(), name='send-invitation'),
     path('accept-invitation/', InvitationAcceptAPIView.as_view(), name='accept-invitation'),
+    #activacion de usuario
+    path('user-activation/<int:user_id>/', UserDeactivatedAPIView.as_view(), name='user-active-status'),
 ]

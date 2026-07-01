@@ -98,7 +98,10 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 
-
+class UserDeactivatedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['name','is_active']
 
 
 class UserListSerializer(serializers.ModelSerializer):
