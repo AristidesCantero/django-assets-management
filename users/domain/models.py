@@ -46,7 +46,7 @@ class UserManager(BaseUserManager.from_queryset(UserQuerySet)):
     def get_business_users(self, business_id: str) -> models.QuerySet[User]:
         """from a business id returns a queryset of User that belongs to the business"""
         business_users_ids = self.get_users_of_business(business_id)
-        return User.objects.filter(id__in=business_users_ids)
+        return User.objects.filter(id__in=business_users_ids, is_active=True)
 
 
     def get_user_if_in_business(self, business_id:str, user_id:str) -> User | None:

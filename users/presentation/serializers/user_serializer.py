@@ -21,7 +21,6 @@ DEFAULT_FORBIDDEN_MODELS = [
     'sessions',
 ]
 
-businessmemberships = BusinessMembershipManager 
 
 
 def pop_non_user_fields(validated_data: dict):
@@ -41,8 +40,7 @@ class UserSerializer(serializers.ModelSerializer):
       
     
     password = serializers.CharField(write_only=True, required=False)
-    businessmembership = serializers.IntegerField(required=False)
-    userbusinesspermission = serializers.DictField(child=serializers.BooleanField(),required=False)
+    username = serializers.CharField(required=False)
     
     
     def get_queryset(self, pk):
@@ -50,31 +48,26 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
     def update(self, instance, validated_data):
-        validated_data, businessmembership, userbusinesspermission  = pop_non_user_fields(validated_data)
-        updated_user = super().update(instance, validated_data)
-        
-        if businessmembership: #method to set businessmembership   
-          businessmemberships.set_businessmembership(businessmembership)
-                      
-        if userbusinesspermission : #method to set the userbusinesspermission
-          businessmemberships.set_userbusinesspermission(userbusinesspermission)
-
+        updated_user = instance
+        updated_user.username = validated_data.get('username', instance.username)
         if 'password' in validated_data:
             updated_user.set_password(validated_data['password'])
-            updated_user.save()
+          
+        updated_user.save()
 
         return updated_user
     
-    #create validations
-    def validate_businessmembership(instance):
-      return validate_businessmembership(instance)
-      
-    def validate_userbusinesspermission(instance):
-      return validate_userbusinesspermission(instance)
-    
-    def validate_email(self, value):
-        return validate_email(value)
+  
 
+    def update(self, instance, validated_data):
+        if instance.is_superuser:
+            raise serializers.ValidationError("Superadmins cannot be deactivated.")
+        if BusinessMembership.objects.filter(user=instance, role__level=100).exists():
+            raise serializers.ValidationError("Business owners cannot be deactivated.")
+        instance.is_active = False
+        instance.save()
+        return instance
+    #create validations
 
     def to_representation(self, instance):
         request = self.context.get('request')

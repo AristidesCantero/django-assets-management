@@ -45,7 +45,7 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
     
     def get_queryset(self,user_id,business_id) -> User | None:
         user = User.objects.get_user_if_in_business(business_id, user_id)
-        if not user:
+        if not user or not user.is_active:
           raise User.DoesNotExist
         return user
 
@@ -76,12 +76,13 @@ class UserAPIView(RetrieveUpdateDestroyAPIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+
     def delete(self, request, user_id, business_id):
         try:
-            user = self.get_queryset(pk=user_id)
-            user_serializer_data = self.serializer_class(user, context={'request': request,'user_id':user_id, 'business_id':business_id}).data
-            user.delete()
-            return Response({'detail': 'User has been deleted successfully.', "data": user_serializer_data}, status=status.HTTP_200_OK)
+            user = self.get_queryset(user_id=user_id, business_id=business_id)
+            serializer = self.serializer_class(user, context={'request': request,'user_id':user_id, 'business_id':business_id})
+            serializer.update(user, {"is_active": False})
+            return Response({'detail': 'User has been deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
         except User.DoesNotExist:
             return Response({'detail': 'User has not been found.'}, status=status.HTTP_404_NOT_FOUND)
     
