@@ -4,11 +4,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.models import Permission
-from django.core.exceptions import ObjectDoesNotExist
-from permissions.presentation.serializers import PermissionSerializer
+from permissions.presentation.serializers import PermissionSerializer, PermissionListSerializer
 
 class PermissionListAPIView(generics.ListAPIView):
-    serializer_class = PermissionSerializer
+    serializer_class = PermissionListSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
@@ -17,7 +16,7 @@ class PermissionListAPIView(generics.ListAPIView):
       
     def get(self, request):
         permissions = self.get_queryset()
-        serializer = self.serializer_class(permissions, many=True)
+        serializer = self.serializer_class(permissions)
         
         response_data = {}
         response_data['data'] = serializer.data
