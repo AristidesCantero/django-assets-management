@@ -1,8 +1,9 @@
 from rest_framework.permissions import DjangoModelPermissions
 from permissions.domain.decorators.user_decorator import *
-from permissions.domain.permission_utility.permissions_methods import *
+from permissions.domain.permissions.permissions import *
 from locations.domain.models import Business
 from permissions.domain.models import BusinessMembership
+from users.domain.models import User
 
 
 #objective permissions
@@ -24,7 +25,7 @@ def user_has_level_over_user(valutated_user: User, consulted_user: User) -> bool
     try:
       v_user_mship = BusinessMembership.objects.get(id=valutated_user.id)
       c_user_mrship = BusinessMembership.objects.get(id=consulted_user.id)
-    except User.DoesNotExist:
+    except User.DoesNotExist: 
       return False
     
     if v_user_mship.role.level > c_user_mrship.role.level:

@@ -1,11 +1,10 @@
 from rest_framework import serializers
 from django.contrib.auth.models import Group
 from rest_framework.validators import UniqueValidator
-from users.presentation.serializers.data_manage.permission_manager import set_group_permissions
+from users.domain.service.permission_manager_service import PermissionManagerService
 
 
-
-
+permission_service = PermissionManagerService()
 
 
 class GroupSerializer(serializers.ModelSerializer):
@@ -30,7 +29,7 @@ class GroupSerializer(serializers.ModelSerializer):
         updated_group = super().update(instance, validated_data)
             
         if permissions:
-            set_group_permissions(group=updated_group, permissions=permissions)
+            permission_service.set_group_permissions(group=updated_group, permissions=permissions)
                     
         return updated_group
 
@@ -64,12 +63,10 @@ class GroupListSerializer(serializers.ModelSerializer):
             group = super().create(validated_data)
         
             if permissions:
-                set_group_permissions(group=group, permissions=permissions)
+                permission_service.set_group_permissions(group=group, permissions=permissions)
                     
             return group
     
-    def validate_permissions(self, value):
-        return validate_all_group_permissions(value)
 
     def to_representation(self, instance):
         return self.json_representation(instance)
@@ -77,14 +74,12 @@ class GroupListSerializer(serializers.ModelSerializer):
     
     #use two different representations: visual for human and json for API
     def visual_representation(self, instance):
-        fbp = ForbiddenGroupPermissions.objects.filter(group=instance)
-        prohibitions = [str(forb_perm.permission).split("|")[-1].replace("Can ", "").strip() for forb_perm in fbp]
+
 
         return {
             'id': instance.id,
             'name': instance.name,
             'permissions': ", ".join([ str(perm.id)+":" + str(perm.name)  for perm in instance.permissions.all()]),
-            'prohibitions': prohibitions,
             
         }
 
@@ -93,6 +88,5 @@ class GroupListSerializer(serializers.ModelSerializer):
             'id': instance.id,
             'name': instance.name,
             'permissions': { str(perm.codename): True for perm in instance.permissions.all()},
-            'prohibitions': { str(forb_perm.permission.codename): True for forb_perm in ForbiddenGroupPermissions.objects.filter(group=instance)},
         }
 

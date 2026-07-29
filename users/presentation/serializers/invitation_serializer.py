@@ -1,8 +1,8 @@
 from rest_framework import serializers
 from users.domain.models import Invitation
-from users.presentation.serializers.token_generator import send_invitation_email
 from users.domain.models import User
 from permissions.domain.models import Business
+from users.domain.service.business_invitation_service import BusinessInvitationService
 
 
 
@@ -56,6 +56,6 @@ class UserInvitationSerializer(serializers.Serializer):
         else:
           raw_token = Invitation.generate_token(user=receiver,business=business)
           
-        email_sent = send_invitation_email(receiver,raw_token,business,sender)
+        email_sent = BusinessInvitationService().send_invitation(receiver, raw_token, business, sender)
         
         return receiver, resent

@@ -1,10 +1,10 @@
 from rest_framework import status
 from rest_framework.generics import *
 from rest_framework.response import Response
-from permissions.domain.permission_classes.permissions import permissionToCheckModel
+from permissions.domain.permissions.permissions import permissionToCheckModel
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from permissions.domain.authentication import CookieJWTAuthentication
-from locations.serializers.internal_location_serializer import InternalLocationSerializer, InternalLocationListSerializer
+from locations.presentation.serializers.internal_location_serializer import InternalLocationSerializer, InternalLocationListSerializer
 from locations.querysets import InternalLocationQuerySet
 from locations.models import InternalLocation
 

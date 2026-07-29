@@ -4,7 +4,7 @@ from rest_framework import status
 from users.presentation.serializers.user_serializer import UserSerializer, UserDeactivatedSerializer
 from users.presentation.serializers.register_serializers import UserRegisterSerializer
 from users.domain.models import User, EmailVerificationToken, Invitation
-from permissions.domain.permission_classes.permissions import *
+from permissions.domain.permissions.permissions import *
 from permissions.domain.authentication import CookieJWTAuthentication
 from permissions.domain.models import BusinessRole
 from django.db import connection

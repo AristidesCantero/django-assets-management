@@ -33,7 +33,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('assets/', include('assets.presentation.urls')),
     path('protocol/', include('protocol.presentation.urls')),
-    path('locations/', include('locations.urls')),
+    path('locations/', include('locations.presentation.urls')),
     path('users/', include('users.presentation.urls')),
     path('permissions/', include('permissions.presentation.urls')),
     path('swagger<format>/', schema_view.without_ui(cache_timeout=0), name='schema-json'),

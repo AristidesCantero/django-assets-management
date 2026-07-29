@@ -1,12 +1,12 @@
 from rest_framework import serializers
-from users.presentation.serializers.data_manage.set_businesses import *
-from users.presentation.serializers.data_manage.permission_manager import *
+from users.domain.service.bmembership_service import *
+from users.domain.service.permission_manager_service import *
 from users.presentation.serializers.validators.validators import *
-from users.presentation.serializers.token_generator import send_verification_email 
+from users.domain.service.email_verification_service import EmailVerificationService
 from users.presentation.serializers.validators.validators import validate_name, validate_password, validate_last_name
-from rest_framework.validators import UniqueValidator
 from users.domain.models import AuthProvider, EmailVerificationToken
 
+permission_service = PermissionManagerService()
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):
@@ -43,7 +43,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
           if existing and not existing.email_verified:
               user = existing
               raw_token = EmailVerificationToken.refresh_old_token(user)
-              email_sent = send_verification_email(user, raw_token)
+              email_sent = EmailVerificationService().send_verification(user, raw_token)
               print('email_sent repeated: ', email_sent)
           else:
             user = User.objects.create_user_unregistered(**validated_data)
@@ -56,8 +56,8 @@ class UserRegisterSerializer(serializers.ModelSerializer):
           
             raw_token = EmailVerificationToken.generate_token(user)
             
-            email_sent = send_verification_email(
-              user,raw_token
+            email_sent = EmailVerificationService().send_verification(
+              user, raw_token
           )
             
           return user

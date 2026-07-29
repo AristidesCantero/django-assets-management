@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.models import Permission
-from permissions.presentation.serializers import PermissionSerializer, PermissionListSerializer
+from permissions.presentation.serializers.permission_serializer import PermissionSerializer, PermissionListSerializer
 
 class PermissionListAPIView(generics.ListAPIView):
     serializer_class = PermissionListSerializer

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from locations.models import Business
-from locations.serializers.serializers import validate_nit, validate_utr, validate_name
+from locations.presentation.serializers.serializers import validate_nit, validate_utr, validate_name
 
 
 

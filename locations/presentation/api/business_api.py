@@ -1,11 +1,9 @@
 from rest_framework.generics import *
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from locations.models import Business
-from locations.serializers.business_serializer import BusinessListSerializer, BusinessSerializer
-from permissions.domain.permission_classes.permissions import permissionToCheckModel
-from rest_framework_simplejwt.authentication import JWTAuthentication
+from locations.presentation.serializers.business_serializer import BusinessListSerializer, BusinessSerializer
+from permissions.domain.permissions.permissions import permissionToCheckModel
 from permissions.domain.authentication import CookieJWTAuthentication
 
 

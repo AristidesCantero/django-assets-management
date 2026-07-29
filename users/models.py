@@ -1,1 +1,1 @@
-from users.domain.models import User
+from users.domain.models import *

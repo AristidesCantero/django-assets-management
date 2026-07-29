@@ -99,6 +99,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'appcore.wsgi.application'
 
+RUNSCRIPT_SCRIPT_DIR = [
+    BASE_DIR.parent / "tools/scripts/",
+]
 
 
 #Django Rest Framework Configuration

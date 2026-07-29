@@ -3,7 +3,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from permissions.domain.authentication import CookieJWTAuthentication
 from rest_framework.response import Response
 from rest_framework import status
-from permissions.domain.permission_classes.permissions import permissionsToCheckGroups
+from permissions.domain.permissions.permissions import permissionsToCheckGroups
 from users.presentation.serializers.group_serializer import GroupSerializer, GroupListSerializer
 from django.contrib.auth.models import Group
 from users.domain.models import User
@@ -40,7 +40,6 @@ class GroupAPIView(RetrieveUpdateDestroyAPIView):
     def patch(self, request, pk, *args, **kwargs):
         try:
             group = Group.objects.get(pk=pk)
-            self.check_object_permissions(request,group)
         except Group.DoesNotExist:
             return Response({'detail': 'Group has not been found.'}, status=status.HTTP_404_NOT_FOUND)
         

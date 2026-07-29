@@ -1,10 +1,9 @@
-from rest_framework import generics, serializers
-from ..serializers import BusinessMembershipSerializer, BusinessMembershipsSerializer
+from ..serializers.membership_serializer import BusinessMembershipSerializer, BusinessMembershipsSerializer
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import serializers, status
-from ...models import BusinessMembership, BusinessRole, UserBusinessPermission
+from rest_framework import generics, status
+from ...models import BusinessMembership
 from ...domain.authentication import CookieJWTAuthentication
-from ...domain.permission_classes.permissions import permissionsToCheckUser, permissionsToCheckUsers
+from ...domain.permissions.permissions import permissionsToCheckUser, permissionsToCheckUsers
 from rest_framework.response import Response
 
 class BusinessMembershipListCreateAPIView(generics.ListCreateAPIView):

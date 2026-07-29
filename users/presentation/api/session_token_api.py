@@ -1,6 +1,6 @@
 from rest_framework_simplejwt.views import TokenBlacklistView
 from rest_framework_simplejwt.views import TokenObtainPairView,TokenRefreshView
-from users.presentation.serializers.tokenserializer import TokenBlacklistSerializer, CustomTokenObtainPairSerializer
+from users.presentation.serializers.token_serializer import TokenBlacklistSerializer, CustomTokenObtainPairSerializer
 from permissions.domain.authentication import CookieJWTAuthentication
 from rest_framework.response import Response
 from rest_framework import status

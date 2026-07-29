@@ -1,18 +1,17 @@
 from rest_framework.exceptions import ValidationError
 from permissions.domain.models import Business, UserBusinessPermission
 from users.domain.models import User, Invitation
-from users.presentation.serializers.data_manage.set_businesses import BusinessMembershipManager
+from users.domain.service.bmembership_service import BusinessMembershipService
+from users.domain.service.base import BaseService
 from django.core.mail import send_mail
 from django.conf import settings
-import hashlib
-import secrets
 import uuid
 import random
 
 
-class InvitationService:
+class InvitationService(BaseService):
     def __init__(self):
-        self.business_membership_manager = BusinessMembershipManager()
+        self.business_membership_service = BusinessMembershipService()
         
 
     def send_invitation(self, receiver_user_id, business_id, user):
@@ -22,7 +21,7 @@ class InvitationService:
             business = Business.objects.get(id=business_id)
 
             # 2. Check if sender is already a member of the business
-            self.business_membership_manager.set_businessmembership(receiver_user_id, business_id)
+            self.business_membership_service.set_businessmembership(receiver_user_id, business_id)
 
             # 3. Generate a unique token
             token = str(uuid.uuid4()) + str(random.randint(1000, 9999))
@@ -65,7 +64,7 @@ class InvitationService:
                 raise ValidationError("User with this email already exists.")
 
             # 2. Set the business membership
-            self.business_membership_manager.set_businessmembership(user.id, business.id)
+            self.business_membership_service.set_businessmembership(user.id, business.id)
 
             # 3. Set the user business permissions
             for permission in business.permissions.all():

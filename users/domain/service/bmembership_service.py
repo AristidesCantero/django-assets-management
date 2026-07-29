@@ -1,8 +1,9 @@
 from permissions.domain.models import BusinessMembership, UserBusinessPermission, BusinessRole
 from django.db import transaction
+from users.domain.service.base import BaseService
 
 
-class BusinessMembershipManager:
+class BusinessMembershipService(BaseService):
     @transaction.atomic
     def set_businessmembership(self, user_id, business_id, role_id):
         # Check if the user already has a BusinessMembership
