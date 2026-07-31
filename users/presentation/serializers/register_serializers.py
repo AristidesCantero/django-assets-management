@@ -1,12 +1,7 @@
 from rest_framework import serializers
-from users.domain.service.bmembership_service import *
-from users.domain.service.permission_manager_service import *
-from users.presentation.serializers.validators.validators import *
 from users.domain.service.email_verification_service import EmailVerificationService
 from users.presentation.serializers.validators.validators import validate_name, validate_password, validate_last_name
-from users.domain.models import AuthProvider, EmailVerificationToken
-
-permission_service = PermissionManagerService()
+from users.domain.models import AuthProvider, EmailVerificationToken, User
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):

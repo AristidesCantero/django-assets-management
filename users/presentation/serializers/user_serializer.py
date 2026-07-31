@@ -1,8 +1,8 @@
 from rest_framework import serializers
 from users.domain.models import User
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from users.domain.service.bmembership_service import *
-from users.domain.service.permission_manager_service import *
+from permissions.domain.service.business_membership_service import *
+from permissions.domain.service.user_bpermission_service import *
 from users.presentation.serializers.validators.validators import *
 
 
@@ -22,7 +22,7 @@ DEFAULT_FORBIDDEN_MODELS = [
 ]
 
 
-permission_service = PermissionManagerService()
+permission_service = UserBusinessPermissionService()
 
 
 
@@ -128,7 +128,6 @@ class UserListSerializer(serializers.ModelSerializer):
                     'last_name': instance.last_name,
                     'email': instance.email,
                     'permissions': permission_service.get_user_businesses_permissions(instance),
-                    'groups': permission_service.get_user_groups(instance),
                 }
 
 

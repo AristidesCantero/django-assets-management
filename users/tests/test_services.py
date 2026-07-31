@@ -162,7 +162,7 @@ class TestTokenGenerator:
             generator.send_email(user=user, token="t", uid="u")
 
             mocked_super.assert_called_once()
-            call_args = mocked_super.call_args[0]
+            call_args = mocked_super.call_args.args
             render_dict = call_args[0]
             subject = call_args[1]
             # user is positional arg 3
@@ -213,7 +213,7 @@ class TestTokenInvitationGenerator:
             business_uid="b", business=business, inviter_user=inviter
         )
 
-        render_dict = mock_render_to_string.call_args[0][1]
+        render_dict = mock_render_to_string.call_args.args[1]
         assert render_dict["user_name"] == user.name
         assert render_dict["business_name"] == business.name
         assert render_dict["inviter_name"] == inviter.name
@@ -236,7 +236,7 @@ class TestTokenInvitationGenerator:
             )
 
             mocked_super.assert_called_once()
-            render_dict, subject, _ = mocked_super.call_args[0]
+            render_dict, subject, _ = mocked_super.call_args.args
             assert "invitation_url" in render_dict
             assert "Assets App" in subject
 
@@ -392,86 +392,108 @@ class TestBusinessMembershipService:
     def test_set_businessmembership_creates_new_membership(self, db, user, business, global_worker_role):
         """
         Business rule: When a user has no membership in a business,
-        calling set_businessmembership must create a new BusinessMembership.
-
-        NOTE: The service has a known bug in its get_or_create defaults
-        where role=3 is passed as an int instead of a BusinessRole instance.
-        This test verifies the bug is acknowledged and documented.
+        calling set_businessmembership must create a new BusinessMembership
+        and return (membership, created=True).
         """
-        from users.domain.service.bmembership_service import BusinessMembershipService
+        from permissions.domain.service.business_membership_service import BusinessMembershipService
         from permissions.domain.models import BusinessMembership, BusinessRole, UserBusinessPermission
 
         service = BusinessMembershipService()
-        try:
+        membership, created = service.set_businessmembership(
+            user_id=user, business_id=business, role_id=global_worker_role.id
+        )
+
+        assert created is True
+        assert membership.user == user
+        assert membership.business == business
+        assert membership.role == global_worker_role
+        assert BusinessMembership.objects.filter(user=user, business=business).count() == 1
+
+    def test_set_businessmembership_returns_existing_membership(self, db, user, business, global_worker_role):
+        """
+        Business rule: When a user already has a membership in a business,
+        calling set_businessmembership must return the existing membership
+        with role updated if a different role_id is provided.
+        """
+        from permissions.domain.service.business_membership_service import BusinessMembershipService
+        from permissions.domain.models import BusinessMembership, BusinessRole
+
+        # Pre-create membership with Worker role
+        existing = BusinessMembership.objects.create(
+            user=user, business=business, role=global_worker_role
+        )
+
+        # Create a different role to test role update
+        admin_role = BusinessRole.objects.create(
+            scope=BusinessRole.Scope.GLOBAL, name="TestAdmin", level=90
+        )
+
+        service = BusinessMembershipService()
+        membership, created = service.set_businessmembership(
+            user_id=user, business_id=business, role_id=admin_role.id
+        )
+
+        assert created is False
+        assert membership.id == existing.id
+        # Role should have been updated to the new one
+        membership.refresh_from_db()
+        assert membership.role == admin_role
+        assert BusinessMembership.objects.filter(user=user, business=business).count() == 1
+
+    def test_set_businessmembership_uses_default_role_when_not_provided(self, db, user, business, global_worker_role):
+        """
+        Business rule: When no role_id is provided, the service must use
+        the default role (id=3).
+        """
+        from permissions.domain.service.business_membership_service import BusinessMembershipService
+        from permissions.domain.models import BusinessMembership, BusinessRole
+
+        # Ensure default role exists
+        default_role, _ = BusinessRole.objects.get_or_create(
+            id=3, defaults={'scope': BusinessRole.Scope.GLOBAL, 'name': 'DefaultRole'}
+        )
+
+        service = BusinessMembershipService()
+        membership, created = service.set_businessmembership(
+            user_id=user, business_id=business
+        )
+
+        assert created is True
+        assert membership.role == default_role
+
+    def test_set_businessmembership_raises_when_default_role_missing(self, db, user, business):
+        """
+        Business rule: If neither the requested role nor the default role (id=3)
+        exists, BusinessRole.DoesNotExist must be raised.
+        """
+        from permissions.domain.service.business_membership_service import BusinessMembershipService
+        from permissions.domain.models import BusinessRole, BusinessMembership
+
+        # Delete the default role (id=3) if it exists
+        BusinessRole.objects.filter(id=3).delete()
+
+        service = BusinessMembershipService()
+        with pytest.raises(BusinessRole.DoesNotExist, match="default role not found"):
             service.set_businessmembership(
-                user_id=user, business_id=business, role_id=global_worker_role.id
+                user_id=user, business_id=business, role_id=99999
             )
-        except Exception as e:
-            # Expected: get_or_create defaults={'role':3} causes ValueError
-            # because role=3 is an int, not a BusinessRole instance
-            pass
 
-        # Document that the membership was NOT created due to the bug
-        membership = BusinessMembership.objects.filter(
-            user=user, business=business
-        ).first()
-        # The bug prevents creation - document current behavior
-        assert membership is None
-
-    def test_set_userbusinesspermission_creates_new_permissions(self, db, user, business, permission_model):
+    def test_set_businessmembership_raises_when_default_role_missing_no_role_id(self, db, user, business):
         """
-        Business rule: For each permission in the dict, a new
-        UserBusinessPermission must be created if it doesn't exist.
-
-        NOTE: The service has a known bug — membership_id is passed as int
-        to get_or_create(membership=membership_id, ...) where membership FK
-        expects a BusinessMembership instance. This test documents the bug.
+        Business rule: If no role_id is given and the default role (id=3)
+        does not exist, BusinessRole.DoesNotExist must be raised.
         """
-        from users.domain.service.bmembership_service import BusinessMembershipService
-        from permissions.domain.models import BusinessMembership, UserBusinessPermission, BusinessRole
+        from permissions.domain.service.business_membership_service import BusinessMembershipService
+        from permissions.domain.models import BusinessRole
 
-        role = BusinessRole.objects.create(scope=BusinessRole.Scope.GLOBAL, name="TestRole")
-        membership = BusinessMembership.objects.create(
-            user=user, business=business, role=role
-        )
+        # Delete the default role (id=3) if it exists
+        BusinessRole.objects.filter(id=3).delete()
 
         service = BusinessMembershipService()
-        permission_dict = {str(permission_model.id): True}
-
-        with pytest.raises(Exception) as excinfo:
-            service.set_userbusinesspermission(
-                membership_id=membership.id,
-                permission_dict=permission_dict
+        with pytest.raises(BusinessRole.DoesNotExist, match="Default role"):
+            service.set_businessmembership(
+                user_id=user, business_id=business
             )
-        # Documents a bug: membership_id (int) passed to FK field that expects instance
-        assert True
-
-    def test_set_userbusinesspermission_updates_existing(self, db, user, business, permission_model):
-        """
-        Business rule: If a UserBusinessPermission already exists,
-        its 'allowed' field must be updated.
-        """
-        from users.domain.service.bmembership_service import BusinessMembershipService
-        from permissions.domain.models import BusinessMembership, UserBusinessPermission, BusinessRole
-
-        role = BusinessRole.objects.create(scope=BusinessRole.Scope.GLOBAL, name="TestRole2")
-        membership = BusinessMembership.objects.create(
-            user=user, business=business, role=role
-        )
-        # Create existing permission with allowed=False
-        ubp = UserBusinessPermission.objects.create(
-            membership=membership, permission_id=permission_model.id, allowed=False
-        )
-
-        service = BusinessMembershipService()
-        service.set_userbusinesspermission(
-            membership_id=membership.id,
-            permission_dict={str(permission_model.id): True}
-        )
-
-        ubp.refresh_from_db()
-        assert ubp.allowed is True
-
 
 # ======================================================================
 # GROUP 8: InvitationAcceptanceService
@@ -797,91 +819,172 @@ class TestInvitationService:
 
 
 # ======================================================================
-# GROUP 10: PermissionManagerService
-# Level: INTEGRATION — requires DB for Group, Permission, etc.
+# GROUP 10: UserBusinessPermissionService
+# Level: INTEGRATION — requires DB for UserBusinessPermission operations.
 # ======================================================================
 
-class TestPermissionManagerService:
+class TestUserBusinessPermissionService:
     """
-    PermissionManagerService manages group-level permissions and
-    user-business permission queries.
+    UserBusinessPermissionService manages UserBusinessPermission records:
+    set (one or multiple) and get (one or all for a user).
     """
 
-    def test_set_group_permission_adds_permission(self, db, admin_group, permission_model):
+    def test_set_userbusinesspermission_creates_new_permissions(self, db, user, business, permission_model):
         """
-        Business rule: When action=True, the permission must be added
-        to the group.
+        Business rule: For each permission in the dict, a new
+        UserBusinessPermission must be created if it doesn't exist.
         """
-        from users.domain.service.permission_manager_service import PermissionManagerService
+        from permissions.domain.service.user_bpermission_service import UserBusinessPermissionService
+        from permissions.domain.models import BusinessMembership, UserBusinessPermission, BusinessRole
 
-        PermissionManagerService.set_group_permission(
-            group=admin_group, permission=permission_model, action=True
+        role = BusinessRole.objects.create(scope=BusinessRole.Scope.GLOBAL, name="TestRole")
+        membership = BusinessMembership.objects.create(
+            user=user, business=business, role=role
         )
 
-        assert permission_model in admin_group.permissions.all()
-
-    def test_set_group_permission_removes_permission(self, db, admin_group, permission_model):
-        """
-        Business rule: When action=False, the permission must be removed
-        from the group (if present).
-        """
-        from users.domain.service.permission_manager_service import PermissionManagerService
-
-        # First add it
-        admin_group.permissions.add(permission_model)
-
-        # Then remove it
-        PermissionManagerService.set_group_permission(
-            group=admin_group, permission=permission_model, action=False
+        service = UserBusinessPermissionService()
+        permission_dict = {str(permission_model.id): True}
+        service.set_userbusinesspermission(
+            membership=membership,
+            permission_dict=permission_dict
         )
 
-        assert permission_model not in admin_group.permissions.all()
+        ubp = UserBusinessPermission.objects.get(
+            membership_id=membership.id, permission_id=permission_model.id
+        )
+        assert ubp is not None
+        assert ubp.allowed is True
 
-    def test_set_group_permissions_processes_dict(self, db, admin_group, permission_model):
+    def test_set_userbusinesspermission_updates_existing(self, db, user, business, permission_model):
         """
-        Business rule: set_group_permissions must iterate over the
-        permissions dict and call set_group_permission for each entry.
-        The dict format is {str(permission_id): bool}.
+        Business rule: If a UserBusinessPermission already exists,
+        its 'allowed' field must be updated.
         """
-        from users.domain.service.permission_manager_service import PermissionManagerService
+        from permissions.domain.service.user_bpermission_service import UserBusinessPermissionService
+        from permissions.domain.models import BusinessMembership, UserBusinessPermission, BusinessRole
 
-        permissions_dict = {str(permission_model.id): True}
-        PermissionManagerService.set_group_permissions(
-            group=admin_group, permissions=permissions_dict
+        role = BusinessRole.objects.create(scope=BusinessRole.Scope.GLOBAL, name="TestRole2")
+        membership = BusinessMembership.objects.create(
+            user=user, business=business, role=role
+        )
+        # Create existing permission with allowed=False
+        ubp = UserBusinessPermission.objects.create(
+            membership=membership, permission_id=permission_model.id, allowed=False
         )
 
-        assert permission_model in admin_group.permissions.all()
-
-    def test_set_group_permissions_removes_when_false(self, db, admin_group, permission_model):
-        """
-        Business rule: When a permission is marked as False in the dict,
-        it must be removed from the group.
-        """
-        from users.domain.service.permission_manager_service import PermissionManagerService
-
-        # Pre-add permission
-        admin_group.permissions.add(permission_model)
-
-        # Set it to False via the bulk method
-        permissions_dict = {str(permission_model.id): False}
-        PermissionManagerService.set_group_permissions(
-            group=admin_group, permissions=permissions_dict
+        service = UserBusinessPermissionService()
+        service.set_userbusinesspermission(
+            membership=membership,
+            permission_dict={str(permission_model.id): True}
         )
 
-        assert permission_model not in admin_group.permissions.all()
+        ubp.refresh_from_db()
+        assert ubp.allowed is True
 
-    def test_get_user_businesses_permissions_uses_raw_sql(self, db, verified_user, business):
+    def test_set_userbusinesspermission_one_creates_new(self, db, user, business, permission_model):
         """
-        Business rule: get_user_businesses_permissions uses raw SQL which
-        references column names like 'business_key_id' and 'user_key_id'.
-        The current model schema uses 'membership_id' and joins through
-        BusinessMembership. This test documents the current broken state.
+        Business rule: set_userbusinesspermission_one must create
+        a new UserBusinessPermission if it doesn't exist.
         """
-        from users.domain.service.permission_manager_service import PermissionManagerService
+        from permissions.domain.service.user_bpermission_service import UserBusinessPermissionService
+        from permissions.domain.models import BusinessMembership, UserBusinessPermission, BusinessRole
 
-        with pytest.raises(Exception) as excinfo:
-            PermissionManagerService.get_user_businesses_permissions(
-                user=verified_user, json_format=True
-            )
-        # The raw SQL references non-existent columns
-        assert True  # documents broken state
+        role = BusinessRole.objects.create(scope=BusinessRole.Scope.GLOBAL, name="TestRole3")
+        membership = BusinessMembership.objects.create(
+            user=user, business=business, role=role
+        )
+
+        service = UserBusinessPermissionService()
+        result = service.set_userbusinesspermission_one(
+            membership=membership,
+            permission_id=permission_model.id,
+            allowed=True
+        )
+
+        assert result is not None
+        assert result.allowed is True
+        assert UserBusinessPermission.objects.filter(
+            membership=membership, permission_id=permission_model.id
+        ).count() == 1
+
+    def test_set_userbusinesspermission_one_updates_existing(self, db, user, business, permission_model):
+        """
+        Business rule: set_userbusinesspermission_one must update
+        an existing UserBusinessPermission's allowed field.
+        """
+        from permissions.domain.service.user_bpermission_service import UserBusinessPermissionService
+        from permissions.domain.models import BusinessMembership, UserBusinessPermission, BusinessRole
+
+        role = BusinessRole.objects.create(scope=BusinessRole.Scope.GLOBAL, name="TestRole4")
+        membership = BusinessMembership.objects.create(
+            user=user, business=business, role=role
+        )
+        ubp = UserBusinessPermission.objects.create(
+            membership=membership, permission_id=permission_model.id, allowed=False
+        )
+
+        service = UserBusinessPermissionService()
+        result = service.set_userbusinesspermission_one(
+            membership=membership,
+            permission_id=permission_model.id,
+            allowed=True
+        )
+
+        ubp.refresh_from_db()
+        assert ubp.allowed is True
+        assert result.id == ubp.id
+
+    def test_get_user_businesses_permissions_returns_dict(self, db, user, business, permission_model):
+        """
+        Business rule: get_user_businesses_permissions must return a
+        dict of {business_id: {permission_id: allowed}} for the user.
+        """
+        from permissions.domain.service.user_bpermission_service import UserBusinessPermissionService
+        from permissions.domain.models import BusinessMembership, UserBusinessPermission, BusinessRole
+
+        role = BusinessRole.objects.create(scope=BusinessRole.Scope.GLOBAL, name="TestRole5")
+        membership = BusinessMembership.objects.create(
+            user=user, business=business, role=role
+        )
+        UserBusinessPermission.objects.create(
+            membership=membership, permission_id=permission_model.id, allowed=True
+        )
+
+        result = UserBusinessPermissionService.get_user_businesses_permissions(user, json_format=True)
+        
+        business_id = str(business.id)
+        
+        assert business_id in result, "Business not found in result"
+        assert str(permission_model.id) in [str(x) for x in result[business_id].keys()], "Permission is not in the user permissions"
+        assert result[business_id][permission_model.id] is True, "Permission is not true"
+
+    def test_get_user_business_permission_returns_permission(self, db, user, business, permission_model):
+        """
+        Business rule: get_user_business_permission must return the
+        UserBusinessPermission if it exists, or None if not.
+        """
+        from permissions.domain.service.user_bpermission_service import UserBusinessPermissionService
+        from permissions.domain.models import BusinessMembership, UserBusinessPermission, BusinessRole
+
+        role = BusinessRole.objects.create(scope=BusinessRole.Scope.GLOBAL, name="TestRole6")
+        membership = BusinessMembership.objects.create(
+            user=user, business=business, role=role
+        )
+        UserBusinessPermission.objects.create(
+            membership=membership, permission_id=permission_model.id, allowed=True
+        )
+
+        # Existing permission
+        result = UserBusinessPermissionService.get_user_business_permission(
+            membership_id=membership.id,
+            permission_id=permission_model.id
+        )
+        assert result is not None
+        assert result.allowed is True
+
+        # Non-existing permission
+        result = UserBusinessPermissionService.get_user_business_permission(
+            membership_id=membership.id,
+            permission_id=99999
+        )
+        assert result is None

@@ -1,7 +1,8 @@
 from rest_framework.exceptions import ValidationError
-from permissions.domain.models import Business, UserBusinessPermission
+from django.db import IntegrityError
+from permissions.domain.models import Business, UserBusinessPermission, BusinessMembership, BusinessRole
 from users.domain.models import User, Invitation
-from users.domain.service.bmembership_service import BusinessMembershipService
+from permissions.domain.service.business_membership_service import BusinessMembershipService
 from users.domain.service.base import BaseService
 from django.core.mail import send_mail
 from django.conf import settings
@@ -12,7 +13,7 @@ import random
 class InvitationService(BaseService):
     def __init__(self):
         self.business_membership_service = BusinessMembershipService()
-        
+
 
     def send_invitation(self, receiver_user_id, business_id, user):
         try:
@@ -49,6 +50,10 @@ class InvitationService(BaseService):
             raise ValidationError("Sender user does not exist.")
         except Business.DoesNotExist:
             raise ValidationError("Business does not exist.")
+        except BusinessRole.DoesNotExist:
+            raise ValidationError("Default business role not found. Cannot assign membership.")
+        except IntegrityError:
+            raise ValidationError("Failed to create business membership due to a database error.")
 
 
 
@@ -86,3 +91,7 @@ class InvitationService(BaseService):
 
         except Invitation.DoesNotExist:
             raise ValidationError("Invalid or expired invitation.")
+        except BusinessRole.DoesNotExist:
+            raise ValidationError("Default business role not found. Cannot assign membership.")
+        except IntegrityError:
+            raise ValidationError("Failed to create business membership due to a database error.")

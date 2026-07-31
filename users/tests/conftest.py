@@ -80,24 +80,24 @@ def global_worker_role(db):
         scope=BusinessRole.Scope.GLOBAL,
         name="Worker",
         defaults={"description": "Default worker role"},
+        is_system=True,
+        level=10
     )
     return role
 
 
 @pytest.fixture
-def admin_group(db):
-    """Return the ADMIN group (usually created by migration)."""
-    from django.contrib.auth.models import Group
-    group, _ = Group.objects.get_or_create(name="ADMIN")
-    return group
-
-
-@pytest.fixture
-def manager_group(db):
-    """Return the MANAGER group."""
-    from django.contrib.auth.models import Group
-    group, _ = Group.objects.get_or_create(name="MANAGER")
-    return group
+def global_owner_role(db):
+    """Create the default Owner role with GLOBAL scope, if not existing"""
+    from permissions.domain.models import BusinessRole
+    role, _ = BusinessRole.objects.get_or_create(
+        scope=BusinessRole.Scope.GLOBAL,
+        name="Owner",
+        defaults={"description": "Only true Owner role"},
+        is_system=True,
+        level=100
+    )
+    return role
 
 
 @pytest.fixture
@@ -150,7 +150,6 @@ def business_membership(db, verified_user, business, global_worker_role):
         defaults={"role": global_worker_role},
     )
     return membership
-
 
 # ------------------------------------------------------------------
 # Encoded-uid helpers
