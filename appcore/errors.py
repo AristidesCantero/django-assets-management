@@ -1,15 +1,32 @@
 from rest_framework.views import exception_handler
 from rest_framework import status
 from rest_framework.response import Response
-from django.http import Http404
+from django.http import Http404, JsonResponse
+
+
+def csrf_failure_json(request, reason=""):
+    """
+    JSON CSRF failure view used as CSRF_FAILURE_VIEW.
+    Replaces Django's default HTML failure page with an API-consistent
+    JSON error response, so the consuming service can parse the reason.
+    """
+    return JsonResponse(
+        {
+            "error": True,
+            "message": "CSRF verification failed.",
+            "details": reason,
+        },
+        status=status.HTTP_403_FORBIDDEN,
+    )
+
 
 def custom_exception_handler(exc, context):
     # Let DRF handle it first}
     
-    print("EXCEPCION: ")
-    print(exc)
-    print("CONTEXTO")
-    print(context)
+    #print("EXCEPCION: ")
+    #print(exc)
+    #print("CONTEXTO")
+    #print(context)
     response = exception_handler(exc, context)
 
     # Handle DRF-generated errors (including NotFound)
@@ -28,6 +45,7 @@ def custom_exception_handler(exc, context):
             "details": None
         }, status=status.HTTP_404_NOT_FOUND)
 
+    print(context.view)
     # Fallback (optional but recommended)
     return Response({
         "error": True,

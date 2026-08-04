@@ -3,7 +3,7 @@ import os
 from decouple import config
 
 
-DEBUG = config('DEBUG')
+DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = []
 
@@ -13,6 +13,16 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
 ]
+
+# Required so Django's CSRF Origin/Referer check accepts requests that
+# carry an Origin header from the consuming frontend/service.
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+]
+
 
 
 # Static files (CSS, JavaScript, Images)

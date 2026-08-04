@@ -56,16 +56,38 @@ THIRD_APPS = [
 INSTALLED_APPS = BASE_APPS + LOCAL_APPS + THIRD_APPS
 
 
+# NOTE: The global CsrfViewMiddleware is intentionally replaced by
+# AdminOnlyCsrfMiddleware below. CSRF protection for API views is enforced
+# per-view through the CookieJWTAuthentication class
+# (permissions/domain/authentication.py), which is the default DRF
+# authentication. AdminOnlyCsrfMiddleware keeps Django admin (/admin/)
+# CSRF-protected while still running CSRF request preparation and cookie
+# writing for API views (get_token()/rotate_token() flag the cookie).
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    'appcore.middleware.AdminOnlyCsrfMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# CSRF Configuration
+# The CSRF secret travels in a plain cookie (CSRF_USE_SESSIONS=False), so
+# JWT statelessness is preserved.
+# IMPORTANT: CSRF_COOKIE_HTTPONLY=True is safe here because there is no SPA:
+# the consuming service reads the token from the response body of the
+# csrf-token endpoint, not from the cookie via JavaScript.
+CSRF_USE_SESSIONS = False
+CSRF_COOKIE_NAME = 'csrftoken'
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_AGE = 31449600  # 1 year, mirrors Django's default
+CSRF_HEADER_NAME = 'HTTP_X_CSRFTOKEN'
+#CSRF_FAILURE_VIEW = 'appcore.errors.csrf_failure_json'
 
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost', cast=lambda v: [s.strip() for s in v.split(',')])
@@ -147,9 +169,6 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-#AUTHENTICATION_BACKENDS = [
-#    'permissions.backends.BusinessPermissionBackend',
-#]
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = False
@@ -169,7 +188,6 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
     'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
 }
-
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/

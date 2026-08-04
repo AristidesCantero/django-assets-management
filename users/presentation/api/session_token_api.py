@@ -4,6 +4,7 @@ from users.presentation.serializers.token_serializer import TokenBlacklistSerial
 from permissions.domain.authentication import CookieJWTAuthentication
 from rest_framework.response import Response
 from rest_framework import status
+from django.middleware.csrf import get_token
 from appcore.settings.base import SIMPLE_JWT, DEBUG
 
 class CustomizedTokenObtainPairView(TokenObtainPairView):
@@ -25,9 +26,26 @@ class CustomizedTokenObtainPairView(TokenObtainPairView):
         access_token = serializer.validated_data["access"]
         refresh_token = serializer.validated_data["refresh"]
  
+        # NOTE: rotate_token() is intentionally NOT called here. Calling it
+        # would invalidate any CSRF token previously issued to the consuming
+        # service (e.g. via GET /users/csrf-token/), because the csrftoken
+        # cookie secret would be replaced and the old masked token would no
+        # longer unmask to the new secret -> CSRF 403 on the very next request.
+        #
+        # get_token() alone still ensures the csrftoken cookie exists and is
+        # renewed (it flags CSRF_COOKIE_NEEDS_UPDATE so
+        # AdminOnlyCsrfMiddleware.process_response writes the cookie), and it
+        # returns the masked token that matches that cookie secret. The
+        # consuming service keeps using the same token it obtained before
+        # login; its cookie secret and this body token are consistent.
+        csrf_token = get_token(request)
+
         # Create a response (no tokens in the body)
-        response = Response({"detail": "Tokens generated successfully"})
- 
+        response = Response({
+            "detail": "Tokens generated successfully",
+            "csrfToken": csrf_token,
+        })
+
         # Set access token cookie
         response.set_cookie(
             key="access_token",
@@ -83,7 +101,7 @@ class CustomizedTokenRefreshView(TokenRefreshView):
             key="access_token",
             value=new_access_token,
             httponly=True,
-            secure=True,#not DEBUG,
+            secure=not DEBUG,
             samesite="Strict",
             max_age=SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'],  # 15 minutes
             path="/",

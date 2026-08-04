@@ -1,9 +1,9 @@
 from django.urls import path
 
-from users.presentation.api.group_api import *
 from users.presentation.api.user_api import *
 from users.presentation.api.invitation_api import *
 from users.presentation.api.session_token_api import *
+from users.presentation.api.csrf_token_api import CSRFTokenView
 
 
 urlpatterns = [
@@ -14,9 +14,6 @@ urlpatterns = [
     path('empresa/<int:business_id>/usuario/<int:user_id>/',UserAPIView.as_view(), name='usuario_detail_api_view'), 
     #apis de usuario por empresa
     path('empresa/<int:business_id>/',UserListAPIView.as_view(), name='usuario_detail_api_view'),
-    path('grupos/',GroupListAPIView.as_view(), name='group_api'), 
-    #apis de grupos
-    path('grupo/<int:pk>/',GroupAPIView.as_view(), name='group_detail_api_view'),
     #apis de sesion de usuario
     path('token/', CustomizedTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', CustomizedTokenRefreshView.as_view(), name='token_refresh'),
@@ -26,4 +23,6 @@ urlpatterns = [
     path('accept-invitation/', InvitationAcceptAPIView.as_view(), name='accept-invitation'),
     #activacion de usuario
     path('user-activation/<int:user_id>/', UserDeactivatedAPIView.as_view(), name='user-active-status'),
+    #endpoint para inicializar el token CSRF para el servicio externo
+    path('csrf-token/', CSRFTokenView.as_view(), name='csrf_token'),
 ]

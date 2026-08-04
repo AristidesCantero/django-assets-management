@@ -29,7 +29,7 @@ class BusinessMembershipDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = BusinessMembershipSerializer
     authentication_classes = [CookieJWTAuthentication]
     permission_classes = [IsAuthenticated, permissionsToCheckUser]
-    allowed_http_methods = ["GET", "PATCH"]
+    http_method_names = ["get", "patch"]
 
     def get_queryset(self):
         business_id = self.kwargs.get('business_id')
